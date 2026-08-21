@@ -19,8 +19,14 @@ const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || ''
 const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL || ''
 
+// 所有出站请求带 10s 超时，避免平台 30s 才兜底返回 504
+const timeoutFetch = (url, opts = {}) => fetch(url, { ...opts, signal: AbortSignal.timeout(10000) })
+
 const admin = SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY
-  ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } })
+  ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+      auth: { persistSession: false },
+      global: { fetch: timeoutFetch },
+    })
   : null
 const stripe = STRIPE_SECRET_KEY ? new Stripe(STRIPE_SECRET_KEY) : null
 
@@ -45,6 +51,40 @@ async function requireUser(req, res) {
 }
 
 app.get('/', (_req, res) => res.json({ name: '牛牛AI API', ok: true }))
+
+// 部署自检：只暴露布尔与耗时，不泄露任何密钥
+app.get('/__health', async (_req, res) => {
+  const report = {
+    ok: true,
+    node: process.version,
+    env: {
+      SUPABASE_URL: Boolean(SUPABASE_URL),
+      SUPABASE_SERVICE_ROLE_KEY: Boolean(SUPABASE_SERVICE_ROLE_KEY),
+      STRIPE_SECRET_KEY: Boolean(STRIPE_SECRET_KEY),
+      PUBLIC_BASE_URL: Boolean(PUBLIC_BASE_URL),
+    },
+  }
+  if (SUPABASE_URL) {
+    const t0 = Date.now()
+    try {
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/`, { signal: AbortSignal.timeout(5000) })
+      report.supabaseReachable = true
+      report.supabaseRestStatus = r.status
+      report.supabaseRestMs = Date.now() - t0
+    } catch (err) {
+      report.supabaseReachable = false
+      report.supabaseRestError = String(err?.name === 'TimeoutError' ? 'timeout_5s' : (err?.message || err))
+      report.supabaseRestMs = Date.now() - t0
+    }
+    if (admin) {
+      const t1 = Date.now()
+      const { error } = await admin.from('plans').select('code', { count: 'exact', head: true })
+      report.plansQueryMs = Date.now() - t1
+      if (error) report.plansQueryError = error.message
+    }
+  }
+  res.json(report)
+})
 
 app.get('/plans', async (_req, res) => {
   if (!admin) return configMissing(res)
