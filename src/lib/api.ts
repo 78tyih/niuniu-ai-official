@@ -1,12 +1,4 @@
-const TOKEN_KEY = 'nniu_token'
-
-export function getToken() {
-  return localStorage.getItem(TOKEN_KEY)
-}
-export function setToken(t: string | null) {
-  if (t) localStorage.setItem(TOKEN_KEY, t)
-  else localStorage.removeItem(TOKEN_KEY)
-}
+import { getAccessToken } from './supabase'
 
 export async function api<T = any>(
   path: string,
@@ -15,7 +7,7 @@ export async function api<T = any>(
   const headers: Record<string, string> = {}
   if (options.body !== undefined) headers['Content-Type'] = 'application/json'
   if (options.auth) {
-    const t = getToken()
+    const t = await getAccessToken()
     if (t) headers['Authorization'] = `Bearer ${t}`
   }
   const res = await fetch(`/api${path}`, {

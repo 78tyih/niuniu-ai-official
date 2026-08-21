@@ -33,10 +33,12 @@ export default function Pricing() {
   const navigate = useNavigate()
 
   useEffect(() => {
-    api<{ plans: Plan[]; notice: string }>('/plans').then((d) => {
-      setPlans(d.plans)
-      setNotice(d.notice)
-    })
+    api<{ plans: Plan[]; notice: string }>('/plans')
+      .then((d) => {
+        setPlans(d.plans)
+        setNotice(d.notice)
+      })
+      .catch((e) => setNotice((e as Error).message))
   }, [])
 
   const startPay = async (plan: Plan, channel: Channel) => {
@@ -66,7 +68,7 @@ export default function Pricing() {
     if (!payment?.orderNo) return
     setPayment({ ...payment, paying: true })
     try {
-      await api('/pay/mock/confirm', { body: { orderNo: payment.orderNo }, auth: true })
+      await api('/pay/mock-confirm', { body: { orderNo: payment.orderNo }, auth: true })
       setPayment({ ...payment, paying: false, paid: true })
       setTimeout(() => navigate('/account'), 900)
     } catch (err) {

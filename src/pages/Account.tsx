@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router'
 import Nav from '../sections/Nav'
 import Footer from '../sections/Footer'
 import { api, fmtPrice, CHANNEL_LABEL, type Order, type Subscription } from '../lib/api'
+import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 
 export default function Account() {
@@ -27,10 +28,13 @@ export default function Account() {
   }, [user])
 
   const bindPhone = async () => {
+    if (!user) return
     setPhoneMsg('')
     setBindingPhone(true)
     try {
-      await api('/me/phone', { body: { phone }, auth: true })
+      if (!/^1\d{10}$/.test(phone)) throw new Error('请输入 11 位大陆手机号')
+      const { error } = await supabase.from('profiles').update({ phone }).eq('id', user.id)
+      if (error) throw new Error(error.message)
       await refreshUser()
     } catch (err) {
       setPhoneMsg((err as Error).message)

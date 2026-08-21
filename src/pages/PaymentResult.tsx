@@ -11,7 +11,7 @@ export default function PaymentResult() {
   useEffect(() => {
     if (!orderNo) return
     // 先从 Stripe 主动核实一次（未配置 webhook 时的兜底），之后轮询订单状态
-    api('/pay/stripe/verify', { body: { orderNo }, auth: true })
+    api('/pay/stripe-verify', { body: { orderNo }, auth: true })
       .then((d) => (d as any).status && setOrderStatus((d as any).status))
       .catch(() => {})
     const t = setInterval(() => {

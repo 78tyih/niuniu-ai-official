@@ -11,7 +11,7 @@ export default function Login() {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [socialHint, setSocialHint] = useState<string | null>(null)
-  const { login, register } = useAuth()
+  const { login, register, backendReady } = useAuth()
   const navigate = useNavigate()
 
   const submit = async (e: FormEvent) => {
@@ -40,6 +40,11 @@ export default function Login() {
         </Link>
 
         <div className="card-line rounded-2xl p-8">
+          {!backendReady && (
+            <div className="mb-5 rounded-lg border border-orange-500/30 bg-orange-500/10 px-4 py-3 text-xs leading-relaxed text-orange-300">
+              后端尚未接入：本演示需要配置 Supabase 环境变量后才能注册登录。
+            </div>
+          )}
           <div className="mb-6 grid grid-cols-2 gap-1 rounded-xl bg-[#111c33] p-1">
             {(['login', 'register'] as const).map((m) => (
               <button
