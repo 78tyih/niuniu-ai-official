@@ -1,5 +1,6 @@
 // Vercel 云函数共享工具（以下划线开头，不会被当作函数入口）
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import Stripe from 'stripe'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 
 export function getAdmin(): SupabaseClient | null {
@@ -32,10 +33,7 @@ export async function requireUser(req: VercelRequest, res: VercelResponse, admin
   return data.user
 }
 
-export function getStripe() {
+export function getStripe(): Stripe | null {
   const key = process.env.STRIPE_SECRET_KEY
-  if (!key) return null
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const Stripe = require('stripe')
-  return new Stripe(key)
+  return key ? new Stripe(key) : null
 }
