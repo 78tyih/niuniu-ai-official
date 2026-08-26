@@ -1,5 +1,6 @@
 // 牛牛AI 官网 · Zeabur 一体化服务器
 // 托管 dist/ 静态前端 + 挂载 Supabase 版 API（cloud-functions/api/[[default]].js）
+import 'dotenv/config'
 import express from 'express'
 import path from 'node:path'
 import fs from 'node:fs'
