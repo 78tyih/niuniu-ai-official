@@ -7,7 +7,7 @@
     "dev": "vite",
     "server": "node server/index.cjs",
     "build": "tsc -b && vite build",
-    "start": "node server/index.cjs",
+    "start": "node server/zeabur.mjs",
     "lint": "eslint .",
     "preview": "vite preview"
   },
