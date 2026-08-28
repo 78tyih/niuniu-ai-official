@@ -164,7 +164,7 @@ export default function Login() {
         </div>
 
         <p className="mt-6 text-center text-sm text-[#6b7280]">
-          登录遇到问题？<Link to="/support" className="text-[#ff6a1a] underline underline-offset-4">联系客服</Link>
+          登录遇到问题？<Link to="/community#contact" className="text-[#ff6a1a] underline underline-offset-4">联系客服</Link>
           <span className="mx-3 text-[#d8d4cb]">·</span>
           <Link to="/" className="transition-colors hover:text-[#14171f]">← 返回首页</Link>
         </p>

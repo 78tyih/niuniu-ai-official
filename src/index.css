@@ -4,29 +4,28 @@
 
 @layer base {
   :root {
-    /* 白壳：暖白编辑层 */
-    --background: 45 29% 97%;
-    --foreground: 222 20% 10%;
+    /* 白壳：Warm White 编辑层 */
+    --background: 60 11% 97.5%;
+    --foreground: 0 0% 7%;
     --card: 0 0% 100%;
-    --card-foreground: 222 20% 10%;
+    --card-foreground: 0 0% 7%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222 20% 10%;
-    /* 橙：只用于主 CTA / 人工确认 / 转化区 */
-    --primary: 23 100% 55%;
+    --popover-foreground: 0 0% 7%;
+    /* 品牌橙：只用于 CTA / Active / 关键状态 / 人工确认 */
+    --primary: 25 95% 53%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 40 14% 93%;
-    --secondary-foreground: 222 20% 12%;
-    --muted: 40 12% 94%;
-    --muted-foreground: 220 7% 42%;
-    /* 青蓝：只出现在深色产品界面内部 */
+    --secondary: 60 6% 94%;
+    --secondary-foreground: 0 0% 9%;
+    --muted: 60 5% 95%;
+    --muted-foreground: 220 9% 46%;
     --accent: 201 100% 61%;
     --accent-foreground: 222 47% 5%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 98%;
-    --border: 40 10% 89%;
-    --input: 40 10% 86%;
-    --ring: 23 100% 55%;
-    --radius: 0.75rem;
+    --border: 220 13% 91%;
+    --input: 220 13% 88%;
+    --ring: 25 95% 53%;
+    --radius: 0.875rem;
   }
 
   html {
@@ -35,25 +34,25 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC",
-      "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", "Segoe UI",
-      sans-serif;
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, "PingFang SC",
+      "Source Han Sans SC", "Noto Sans SC", "Hiragino Sans GB",
+      "Microsoft YaHei", sans-serif;
     font-feature-settings: "tnum";
   }
 
   ::selection {
-    background: rgba(255, 106, 26, 0.22);
+    background: rgba(249, 115, 22, 0.22);
   }
 }
 
 @layer utilities {
   .font-display {
-    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC",
-      "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, "PingFang SC",
+      "Source Han Sans SC", "Noto Sans SC", sans-serif;
     letter-spacing: -0.02em;
   }
 
-  /* 英文微标：导航 / 眉题 */
+  /* 英文微标 */
   .micro-label {
     font-size: 11px;
     letter-spacing: 0.18em;
@@ -61,42 +60,14 @@
     font-weight: 600;
   }
 
-  /* 黑核：产品界面嵌入面板 */
-  .ink-panel {
-    background: #0a0f1a;
-    color: #dbe4f3;
-    border: 1px solid #1b2740;
-  }
-
-  .ink-panel-inner {
-    background: #0f1626;
-    border: 1px solid #1b2740;
-  }
-
   .card-light {
-    @apply border border-[#e8e6e0] bg-white;
-  }
-
-  .hairline-b {
-    border-bottom: 1px solid #e8e6e0;
-  }
-
-  .text-gradient-cyan {
-    background: linear-gradient(120deg, #7dd3fc 0%, #38bdf8 45%, #0ea5e9 100%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-  }
-
-  .glow-cyan {
-    box-shadow: 0 0 80px -20px rgba(56, 189, 248, 0.35);
+    @apply border border-[#e5e7eb] bg-white;
   }
 
   .reveal {
     opacity: 0;
-    transform: translateY(28px);
-    transition: opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
-      transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+    transform: translateY(24px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
   }
 
   .reveal.is-visible {

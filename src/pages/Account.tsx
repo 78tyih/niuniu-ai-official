@@ -196,7 +196,7 @@ export default function Account() {
                 <span className="ml-2 text-xs text-[#9aa0ad]">搜索群号即可加入</span>
               </li>
               <li>
-                企业微信群：<Link to="/support#community" className="text-[#ff6a1a] underline underline-offset-4">查看二维码</Link>
+                企业微信群：<Link to="/community#groups" className="text-[#ff6a1a] underline underline-offset-4">查看二维码</Link>
               </li>
               <li>服务时间：9:00 – 18:00</li>
             </ul>
