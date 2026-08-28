@@ -371,6 +371,36 @@ export default function Home() {
         </div>
       </Section>
 
+      {/* 05b 手机端同步使用 */}
+      <Section variant="compact" tinted bordered>
+        <SectionHead
+          title="手机端同样可用"
+          desc="出差、通勤、不在电脑前，也能在手机上完成分析与复盘。"
+        />
+        <div className="reveal mx-auto mt-10 grid max-w-4xl grid-cols-1 gap-6 sm:grid-cols-3">
+          {(['ai-analysis', 'position-diagnosis', 'ai-replay'] as const).map((slug) => {
+            const c = HOME_CHAPTERS.find((x) => x.slug === slug)!
+            return (
+              <figure key={slug}>
+                <div className="shot-zoom overflow-hidden rounded-2xl border border-[#e5e7eb] bg-[#0b1724] shadow-[0_20px_48px_-32px_rgba(11,23,36,0.4)]">
+                  <video
+                    src={c.videoMobile}
+                    poster={c.posterMobile}
+                    muted
+                    playsInline
+                    preload="metadata"
+                    controls
+                    className="block aspect-[9/16] w-full object-cover"
+                    aria-label={`手机端 ${c.title}`}
+                  />
+                </div>
+                <figcaption className="mt-3 text-center text-[13px] font-medium text-[#6b7280]">{c.title}</figcaption>
+              </figure>
+            )
+          })}
+        </div>
+      </Section>
+
       {/* 06 Pricing Preview */}
       <Section variant="compact" tinted bordered>
         <div className="reveal flex flex-wrap items-end justify-between gap-4">

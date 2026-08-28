@@ -3,6 +3,7 @@ import { useLocation, Link } from 'react-router'
 import Nav from '../sections/Nav'
 import Footer from '../sections/Footer'
 import { CHAPTERS } from '../lib/chapters'
+import { useIsMobile } from '../hooks/useIsMobile'
 
 const DEMO_SLUGS = ['connect-mt5', 'ai-analysis', 'ai-review', 'position-diagnosis', 'ai-replay']
 const DEMO_CHAPTERS = DEMO_SLUGS.map((s) => CHAPTERS.find((c) => c.slug === s)!)
@@ -14,6 +15,7 @@ export default function Demo() {
   const [progress, setProgress] = useState(0)
   const [playing, setPlaying] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
+  const isMobile = useIsMobile()
   const chapter = DEMO_CHAPTERS[active]
 
   // hash 联动 /demo#<slug>
@@ -23,7 +25,7 @@ export default function Demo() {
     if (idx >= 0) setActive(idx)
   }, [location.hash])
 
-  // 切换章节：重新加载并自动播放（chapter → video 联动）
+  // 切换章节或端型：重新加载并自动播放（chapter → video 联动）
   useEffect(() => {
     const el = videoRef.current
     if (!el) return
@@ -32,7 +34,7 @@ export default function Demo() {
     el.play()
       .then(() => setPlaying(true))
       .catch(() => setPlaying(false))
-  }, [active])
+  }, [active, isMobile])
 
   const onTimeUpdate = () => {
     const el = videoRef.current
@@ -59,9 +61,9 @@ export default function Demo() {
           <div className="overflow-hidden rounded-xl border border-[#e5e7eb] bg-[#0b1724] shadow-[0_24px_60px_-32px_rgba(11,23,36,0.45)]">
             <video
               ref={videoRef}
-              key={chapter.slug}
-              src={chapter.video}
-              poster={chapter.poster}
+              key={`${chapter.slug}-${isMobile ? 'm' : 'd'}`}
+              src={isMobile ? chapter.videoMobile : chapter.video}
+              poster={isMobile ? chapter.posterMobile : chapter.poster}
               muted
               playsInline
               preload="auto"
@@ -70,7 +72,11 @@ export default function Demo() {
               onEnded={goNext}
               onPlay={() => setPlaying(true)}
               onPause={() => setPlaying(false)}
-              className="block aspect-video w-full object-cover"
+              className={
+                isMobile
+                  ? 'mx-auto block max-h-[68vh] w-full object-contain'
+                  : 'block aspect-video w-full object-cover'
+              }
               aria-label={chapter.title}
             />
           </div>
