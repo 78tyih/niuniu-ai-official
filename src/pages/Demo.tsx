@@ -1,101 +1,157 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useLocation, Link } from 'react-router'
 import Nav from '../sections/Nav'
 import Footer from '../sections/Footer'
-import VideoPlayer from '../components/VideoPlayer'
 import { CHAPTERS } from '../lib/chapters'
-import { useReveal } from '../hooks/useReveal'
+
+const DEMO_SLUGS = ['connect-mt5', 'ai-analysis', 'ai-review', 'position-diagnosis', 'ai-replay']
+const DEMO_CHAPTERS = DEMO_SLUGS.map((s) => CHAPTERS.find((c) => c.slug === s)!)
+const MORE_CHAPTERS = CHAPTERS.filter((c) => !DEMO_SLUGS.includes(c.slug))
 
 export default function Demo() {
-  useReveal()
   const location = useLocation()
-  const [active, setActive] = useState(CHAPTERS[0])
+  const [active, setActive] = useState(0)
+  const [progress, setProgress] = useState(0)
+  const [playing, setPlaying] = useState(false)
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const chapter = DEMO_CHAPTERS[active]
 
+  // hash 联动 /demo#<slug>
   useEffect(() => {
     const slug = location.hash.replace('#', '')
-    const found = CHAPTERS.find((c) => c.slug === slug)
-    if (found) setActive(found)
+    const idx = DEMO_CHAPTERS.findIndex((c) => c.slug === slug)
+    if (idx >= 0) setActive(idx)
   }, [location.hash])
 
-  const next = CHAPTERS[(CHAPTERS.indexOf(active) + 1) % CHAPTERS.length]
+  // 切换章节：重新加载并自动播放（chapter → video 联动）
+  useEffect(() => {
+    const el = videoRef.current
+    if (!el) return
+    setProgress(0)
+    el.load()
+    el.play()
+      .then(() => setPlaying(true))
+      .catch(() => setPlaying(false))
+  }, [active])
+
+  const onTimeUpdate = () => {
+    const el = videoRef.current
+    if (el && el.duration) setProgress(el.currentTime / el.duration)
+  }
+
+  const goNext = () => setActive((a) => (a + 1) % DEMO_CHAPTERS.length)
 
   return (
     <div className="min-h-screen bg-[#fafaf8] text-[#111111]">
       <Nav />
 
-      {/* Demo Hero */}
-      <section className="pt-32 pb-14 sm:pt-40">
+      {/* 紧凑头部 */}
+      <section className="pb-8 pt-[104px] sm:pt-[128px]">
         <div className="mx-auto max-w-[1280px] px-6 sm:px-10">
-          <div className="reveal max-w-2xl">
-            <h1 className="font-display text-[36px] font-bold sm:text-[48px]">看看牛牛 AI 如何工作</h1>
-            <p className="mt-5 text-base leading-relaxed text-[#6b7280] sm:text-[17px]">
-              通过真实操作视频，了解从 MT5 连接到 AI 分析的完整流程。
-            </p>
-          </div>
+          <h1 className="font-display text-[28px] font-bold sm:text-[34px]">产品演示</h1>
+          <p className="mt-2 text-[15px] text-[#6b7280]">用真实操作了解牛牛AI。</p>
         </div>
       </section>
 
-      {/* Demo Theater */}
-      <section className="pb-24">
+      {/* Video Theater */}
+      <section className="pb-[64px] sm:pb-[80px]">
         <div className="mx-auto max-w-[1280px] px-6 sm:px-10">
-          <div className="reveal grid items-start gap-8 lg:grid-cols-[1.6fr_1fr]">
-            <div>
-              <VideoPlayer
-                key={active.slug}
-                src={active.video}
-                poster={active.poster}
-                title={`${active.no} · ${active.title}`}
-                autoPlayOnVisible
-              />
-              {/* 当前章节说明 */}
-              <div className="mt-7">
-                <div className="flex items-baseline gap-3">
-                  <span className="font-mono text-sm font-semibold text-[#f97316]">{active.no}</span>
-                  <h2 className="text-xl font-bold">{active.title}</h2>
-                </div>
-                <p className="mt-2.5 max-w-xl text-[15px] leading-relaxed text-[#6b7280]">{active.desc}</p>
-                <button
-                  onClick={() => setActive(next)}
-                  className="mt-5 text-sm font-medium text-[#f97316] transition-colors hover:text-[#ea6a0c]"
-                >
-                  下一章节：{next.no} {next.title} →
-                </button>
-              </div>
-            </div>
+          <div className="overflow-hidden rounded-xl border border-[#e5e7eb] bg-[#0b1724] shadow-[0_24px_60px_-32px_rgba(11,23,36,0.45)]">
+            <video
+              ref={videoRef}
+              key={chapter.slug}
+              src={chapter.video}
+              poster={chapter.poster}
+              muted
+              playsInline
+              preload="auto"
+              controls
+              onTimeUpdate={onTimeUpdate}
+              onEnded={goNext}
+              onPlay={() => setPlaying(true)}
+              onPause={() => setPlaying(false)}
+              className="block aspect-video w-full object-cover"
+              aria-label={chapter.title}
+            />
+          </div>
 
-            {/* 章节导航 */}
-            <nav className="space-y-1.5">
-              {CHAPTERS.map((c) => (
+          {/* 横向章节条：与播放进度双向联动 */}
+          <div className="scrollbar-none -mx-6 mt-5 flex gap-2 overflow-x-auto px-6 pb-1 sm:mx-0 sm:px-0">
+            {DEMO_CHAPTERS.map((c, i) => {
+              const isActive = i === active
+              return (
                 <button
-                  key={c.no}
-                  onClick={() => setActive(c)}
-                  className={`flex w-full items-center gap-4 rounded-lg px-4 py-3.5 text-left transition-colors ${
-                    active.slug === c.slug ? 'bg-white shadow-sm ring-1 ring-[#e5e7eb]' : 'hover:bg-white'
+                  key={c.slug}
+                  onClick={() => setActive(i)}
+                  className={`relative min-w-[132px] shrink-0 overflow-hidden rounded-lg px-4 py-3 text-left transition-colors duration-200 ${
+                    isActive ? 'bg-white shadow-sm ring-1 ring-[#e5e7eb]' : 'hover:bg-white'
                   }`}
                 >
-                  <span className={`font-mono text-sm font-semibold ${active.slug === c.slug ? 'text-[#f97316]' : 'text-[#d1d5db]'}`}>
+                  <span className={`block font-mono text-[11px] font-semibold ${isActive ? 'text-[#f97316]' : 'text-[#d1d5db]'}`}>
                     {c.no}
                   </span>
-                  <span className={`flex-1 text-[15px] ${active.slug === c.slug ? 'font-semibold' : 'font-medium text-[#374151]'}`}>
+                  <span className={`mt-0.5 block whitespace-nowrap text-[14px] ${isActive ? 'font-semibold' : 'font-medium text-[#374151]'}`}>
                     {c.title}
                   </span>
-                  {active.slug === c.slug && <span className="h-1.5 w-1.5 rounded-full bg-[#f97316]" />}
+                  {/* 进度填充（video → chapter 联动） */}
+                  <span className="absolute inset-x-0 bottom-0 h-[2px] bg-[#f3f4f6]">
+                    <span
+                      className={`block h-full bg-[#f97316] transition-[width] duration-150 ${isActive ? '' : 'w-0'}`}
+                      style={isActive ? { width: `${Math.round(progress * 100)}%` } : undefined}
+                    />
+                  </span>
                 </button>
+              )
+            })}
+          </div>
+
+          {/* 当前章节说明 */}
+          <div className="mt-6 flex flex-wrap items-start justify-between gap-6">
+            <div className="max-w-xl">
+              <div className="flex items-baseline gap-3">
+                <span className="font-mono text-sm font-semibold text-[#f97316]">{chapter.no}</span>
+                <h2 className="text-[19px] font-bold">{chapter.title}</h2>
+                {!playing && <span className="text-xs text-[#9ca3af]">已暂停</span>}
+              </div>
+              <p className="mt-2 text-[15px] leading-relaxed text-[#6b7280]">{chapter.desc}</p>
+            </div>
+            <button
+              onClick={goNext}
+              className="link-arrow shrink-0 text-sm font-medium text-[#f97316] transition-colors hover:text-[#ea6a0c]"
+            >
+              下一章节：{DEMO_CHAPTERS[(active + 1) % DEMO_CHAPTERS.length].title} <span className="arrow">→</span>
+            </button>
+          </div>
+
+          {/* 更多章节 */}
+          <div className="mt-8 border-t border-[#eceae6] pt-6">
+            <div className="text-[13px] font-medium text-[#9ca3af]">更多功能章节</div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {MORE_CHAPTERS.map((c) => (
+                <a
+                  key={c.slug}
+                  href={c.video}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="link-arrow rounded-full border border-[#e5e7eb] bg-white px-4 py-2 text-[13px] font-medium text-[#374151] transition-colors hover:border-[#f97316] hover:text-[#f97316]"
+                >
+                  {c.title} <span className="arrow">→</span>
+                </a>
               ))}
-            </nav>
+            </div>
+          </div>
+
+          {/* 底部 CTA */}
+          <div className="mt-12 text-center">
+            <p className="text-[15px] text-[#6b7280]">看完演示，选择适合你的使用周期。</p>
+            <Link
+              to="/pricing"
+              className="btn-lift mt-4 inline-block rounded-lg bg-[#f97316] px-8 py-3.5 text-[15px] font-semibold text-white hover:bg-[#ea6a0c]"
+            >
+              查看价格方案
+            </Link>
           </div>
         </div>
-      </section>
-
-      {/* 底部 CTA */}
-      <section className="pb-24 text-center">
-        <p className="text-[15px] text-[#6b7280]">看完演示，选择适合你的使用周期。</p>
-        <Link
-          to="/pricing"
-          className="mt-5 inline-block rounded-lg bg-[#f97316] px-8 py-4 text-[15px] font-semibold text-white transition-colors hover:bg-[#ea6a0c]"
-        >
-          查看价格方案
-        </Link>
       </section>
 
       <Footer />

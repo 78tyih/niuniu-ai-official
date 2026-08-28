@@ -81,4 +81,43 @@
   .scrollbar-none {
     scrollbar-width: none;
   }
+
+  /* ===== Micro Interactions（全站统一，只允许这几种） ===== */
+
+  /* Button Lift */
+  .btn-lift {
+    transition: transform 0.22s ease, box-shadow 0.22s ease, background-color 0.22s ease,
+      border-color 0.22s ease, color 0.22s ease;
+  }
+  .btn-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 24px -12px rgba(17, 17, 17, 0.35);
+  }
+  .btn-lift:active {
+    transform: translateY(0);
+  }
+
+  /* Link Arrow Shift */
+  .link-arrow .arrow {
+    display: inline-block;
+    transition: transform 0.22s ease;
+  }
+  .link-arrow:hover .arrow {
+    transform: translateX(4px);
+  }
+
+  /* Screenshot Scale（最大 1.015） */
+  .shot-zoom img {
+    transition: transform 0.45s ease;
+  }
+  .shot-zoom:hover img {
+    transform: scale(1.015);
+  }
+
+  /* Pricing Focus：由父级 [data-pricing-hover] 控制 */
+  .pricing-card {
+    transition: transform 0.24s ease, opacity 0.24s ease, border-color 0.24s ease,
+      box-shadow 0.24s ease;
+  }
 }
+

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router'
 import QRCode from 'qrcode'
 import Nav from '../sections/Nav'
 import Footer from '../sections/Footer'
+import Section, { SectionHead } from '../components/Section'
 import { api, fmtPrice, INTERVAL_LABEL, CHANNEL_LABEL, type Plan } from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
 import { useReveal } from '../hooks/useReveal'
@@ -26,6 +27,15 @@ const CHANNELS: { key: Channel; label: string; hint: string }[] = [
   { key: 'stripe', label: 'Stripe', hint: '银行卡 · 测试通道' },
 ]
 
+const AUDIENCE: Record<string, { who: string; line: string }> = {
+  days3: { who: '想先体验再决定的用户', line: '完整功能 3 天体验，渠道活动同价。' },
+  monthly: { who: '轻度使用的个人交易者', line: '一个月完整工作流，按需续停。' },
+  quarterly: { who: '稳定使用的进阶用户', line: '覆盖一个季度，月均成本更低。' },
+  yearly: { who: '长期主力使用者', line: '全年最优月均成本，省心首选。' },
+}
+
+const INCLUDED = ['AI 行情分析', '风险审核', '持仓诊断', 'AI 日志', '自定义 Prompt']
+
 const PRICING_FAQS = [
   { q: '支持哪些 MT5？', a: '原则上 MT5 环境均可连接，但个别券商的接口限制可能成为例外。建议先联系客服确认你的环境，再决定是否订阅。' },
   { q: '如何连接我的 MT5？', a: '在牛牛AI 控制台中选择「连接 MT5」，按指引完成授权即可。行情与持仓会一键同步，全程只读，不触碰资金。' },
@@ -40,6 +50,7 @@ export default function Pricing() {
   const [notice, setNotice] = useState('')
   const [payment, setPayment] = useState<PaymentState | null>(null)
   const [openFaq, setOpenFaq] = useState<number | null>(0)
+  const [hovered, setHovered] = useState<string | null>(null)
   const { user } = useAuth()
   const navigate = useNavigate()
 
@@ -51,6 +62,14 @@ export default function Pricing() {
       })
       .catch((e) => setNotice((e as Error).message))
   }, [])
+
+  const openCheckout = (plan: Plan) => {
+    if (!user) {
+      navigate('/login')
+      return
+    }
+    setPayment({ plan, channel: 'wechat' })
+  }
 
   const startPay = async (plan: Plan, channel: Channel) => {
     if (!user) {
@@ -94,103 +113,104 @@ export default function Pricing() {
     <div className="min-h-screen bg-[#fafaf8] text-[#111111]">
       <Nav />
 
-      {/* Pricing Hero */}
-      <section className="pt-32 pb-14 sm:pt-40">
-        <div className="mx-auto max-w-[1280px] px-6 text-center sm:px-10">
-          <h1 className="font-display text-[36px] font-bold sm:text-[48px]">选择适合你的方案</h1>
-          <p className="mx-auto mt-5 max-w-xl text-base leading-relaxed text-[#6b7280] sm:text-[17px]">
-            根据你的交易需求，选择对应的牛牛 AI 使用方案。
+      {/* 紧凑头部：价格卡必须在第一屏主要区域出现 */}
+      <section className="pb-8 pt-[104px] sm:pt-[128px]">
+        <div className="mx-auto max-w-[1280px] px-6 sm:px-10">
+          <h1 className="font-display text-[28px] font-bold sm:text-[34px]">选择适合你的方案</h1>
+          <p className="mt-2 text-[15px] text-[#6b7280]">
+            四个使用周期，功能完全一致。{notice && <span className="text-[#9ca3af]">{notice}</span>}
           </p>
-          {notice && <p className="mt-3 text-[13px] text-[#9ca3af]">{notice}</p>}
         </div>
       </section>
 
       {/* Pricing Cards */}
-      <section className="pb-24">
+      <section className="pb-[52px] sm:pb-[80px]">
         <div className="mx-auto max-w-[1280px] px-6 sm:px-10">
-          <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" onMouseLeave={() => setHovered(null)}>
             {plans.map((p) => {
               const recommended = p.code === 'yearly'
+              const dim = hovered && hovered !== p.code
+              const a = AUDIENCE[p.code]
               return (
                 <div
                   key={p.code}
-                  className={`relative flex flex-col rounded-2xl border bg-white p-7 ${
-                    recommended ? 'border-[#f97316]' : 'border-[#e5e7eb]'
+                  onMouseEnter={() => setHovered(p.code)}
+                  className={`pricing-card relative flex flex-col rounded-2xl bg-white p-6 ${
+                    recommended ? 'border-2 border-[#f97316]' : 'border border-[#e5e7eb]'
+                  } ${hovered === p.code ? '-translate-y-1 shadow-[0_18px_44px_-24px_rgba(17,17,17,0.3)]' : ''} ${
+                    dim ? 'opacity-[0.72]' : ''
                   }`}
                 >
                   {recommended && (
-                    <span className="absolute -top-3 left-7 rounded-full bg-[#f97316] px-3 py-1 text-xs font-bold text-white">
+                    <span className="absolute -top-3 left-6 rounded-full bg-[#f97316] px-3 py-1 text-[11px] font-bold text-white">
                       推荐
                     </span>
                   )}
-                  <h2 className="text-base font-bold">{p.name}</h2>
-                  <div className="mt-4 flex items-baseline gap-1.5">
-                    <span className="font-display text-[34px] font-bold">{fmtPrice(p.price_cents)}</span>
-                    <span className="text-sm text-[#9ca3af]">/ {INTERVAL_LABEL[p.interval]}</span>
+                  <h2 className="text-[15px] font-bold">{p.name}</h2>
+                  <div className="mt-3 flex items-baseline gap-1.5">
+                    <span className="font-display text-[32px] font-bold">{fmtPrice(p.price_cents)}</span>
+                    <span className="text-[13px] text-[#9ca3af]">/ {INTERVAL_LABEL[p.interval]}</span>
                   </div>
-                  <div className="mt-1.5 min-h-4 text-[13px] text-[#9ca3af]">
+                  <div className="mt-1 text-[12px] text-[#9ca3af]">
                     {p.months > 0 && `折合 ${fmtPrice(Math.round(p.price_cents / p.months))}/月 · `}
                     含 {p.nq_credit.toLocaleString()} 牛气值
                   </div>
-                  <ul className="mt-6 flex-1 space-y-2.5 border-t border-[#f3f4f6] pt-6">
-                    {p.features.map((f) => (
-                      <li key={f} className="flex items-start gap-2 text-[13px] leading-relaxed text-[#4b5563]">
-                        <svg className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#f97316]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.4}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                        </svg>
-                        {f}
-                      </li>
-                    ))}
-                  </ul>
-                  <div className="mt-7 space-y-2">
-                    {CHANNELS.map((c) => (
-                      <button
-                        key={c.key}
-                        onClick={() => startPay(p, c.key)}
-                        className={`w-full rounded-lg px-4 py-2.5 text-left text-[13px] transition-colors ${
-                          c.key === 'wechat'
-                            ? 'bg-[#f97316] font-semibold text-white hover:bg-[#ea6a0c]'
-                            : 'border border-[#e5e7eb] font-medium text-[#374151] hover:border-[#111111]'
-                        }`}
-                      >
-                        {c.label}订阅
-                        <span className={`ml-2 text-[11px] font-normal ${c.key === 'wechat' ? 'text-white/70' : 'text-[#9ca3af]'}`}>
-                          {c.hint}
-                        </span>
-                      </button>
-                    ))}
+                  <div className="mt-5 flex-1 border-t border-[#f3f4f6] pt-4">
+                    <div className="text-[13px] font-semibold text-[#111111]">适合：{a?.who}</div>
+                    <p className="mt-1.5 text-[13px] leading-relaxed text-[#6b7280]">{a?.line}</p>
                   </div>
+                  <button
+                    onClick={() => openCheckout(p)}
+                    className={`btn-lift mt-5 w-full rounded-lg py-3 text-sm font-semibold ${
+                      recommended
+                        ? 'bg-[#f97316] text-white hover:bg-[#ea6a0c]'
+                        : 'border border-[#e5e7eb] text-[#111111] hover:border-[#111111]'
+                    }`}
+                  >
+                    选择{p.name}
+                  </button>
                 </div>
               )
             })}
           </div>
 
-          <p className="mx-auto mt-8 max-w-2xl text-center text-xs leading-relaxed text-[#9ca3af]">
+          {/* 所有方案均包含 */}
+          <div className="reveal mt-6 flex flex-wrap items-center gap-x-8 gap-y-2 rounded-xl border border-[#e5e7eb] bg-white px-6 py-4">
+            <span className="text-[13px] font-semibold text-[#111111]">所有方案均包含</span>
+            {INCLUDED.map((f) => (
+              <span key={f} className="flex items-center gap-1.5 text-[13px] text-[#6b7280]">
+                <svg className="h-3.5 w-3.5 text-[#f97316]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.4}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                </svg>
+                {f}
+              </span>
+            ))}
+          </div>
+
+          <p className="mx-auto mt-5 max-w-2xl text-center text-xs leading-relaxed text-[#9ca3af]">
             官方 C 端直营价；经销商成交价以其签约文件及后台显示为准。牛气值按 50 元 = 1000 点折算，使用规则以正式版本为准。AI 分析仅供辅助参考，不构成投资建议。
           </p>
         </div>
       </section>
 
       {/* 常见问题 */}
-      <section className="pb-28">
-        <div className="mx-auto max-w-3xl px-6 sm:px-10">
-          <h2 className="font-display text-center text-[28px] font-bold sm:text-[32px]">常见问题</h2>
-          <div className="mt-10 space-y-3">
-            {PRICING_FAQS.map((f, i) => (
-              <div key={f.q} className={`overflow-hidden rounded-xl border bg-white transition-colors ${openFaq === i ? 'border-[#111111]/30' : 'border-[#e5e7eb]'}`}>
-                <button
-                  onClick={() => setOpenFaq(openFaq === i ? null : i)}
-                  className="flex w-full items-center justify-between px-6 py-5 text-left text-[15px] font-semibold"
-                >
-                  {f.q}
-                  <span className={`ml-4 text-[#d1d5db] transition-transform ${openFaq === i ? 'rotate-45' : ''}`}>＋</span>
-                </button>
-                {openFaq === i && <p className="px-6 pb-5 text-sm leading-relaxed text-[#6b7280]">{f.a}</p>}
-              </div>
-            ))}
-          </div>
+      <Section variant="compact" tinted bordered>
+        <SectionHead title="常见问题" className="mx-auto text-center" />
+        <div className="mx-auto mt-8 max-w-3xl space-y-3">
+          {PRICING_FAQS.map((f, i) => (
+            <div key={f.q} className={`overflow-hidden rounded-xl border bg-white transition-colors ${openFaq === i ? 'border-[#111111]/30' : 'border-[#e5e7eb]'}`}>
+              <button
+                onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                className="flex w-full items-center justify-between px-6 py-4 text-left text-[15px] font-semibold"
+              >
+                {f.q}
+                <span className={`ml-4 text-[#d1d5db] transition-transform duration-200 ${openFaq === i ? 'rotate-45' : ''}`}>＋</span>
+              </button>
+              {openFaq === i && <p className="px-6 pb-4 text-sm leading-relaxed text-[#6b7280]">{f.a}</p>}
+            </div>
+          ))}
         </div>
-      </section>
+      </Section>
 
       <Footer />
 
@@ -247,14 +267,14 @@ export default function Pricing() {
                   </div>
                 ) : (
                   <div className="mt-5 py-6 text-center text-sm text-[#6b7280]">
-                    {payment.paying ? '正在创建订单…' : payment.message || '点击「确认并前往支付」创建订单'}
+                    {payment.paying ? '正在创建订单…' : payment.message || '选择支付方式，点击「确认并前往支付」创建订单'}
                   </div>
                 )}
 
                 {!payment.orderNo && !payment.paying && (
                   <button
                     onClick={() => startPay(payment.plan, payment.channel)}
-                    className="mt-5 w-full rounded-lg bg-[#f97316] py-3 text-sm font-semibold text-white transition-colors hover:bg-[#ea6a0c]"
+                    className="btn-lift mt-5 w-full rounded-lg bg-[#f97316] py-3 text-sm font-semibold text-white hover:bg-[#ea6a0c]"
                   >
                     确认并前往支付
                   </button>
@@ -263,7 +283,7 @@ export default function Pricing() {
                   <button
                     onClick={confirmPaid}
                     disabled={payment.paying}
-                    className="mt-5 w-full rounded-lg bg-emerald-500 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-400 disabled:opacity-50"
+                    className="btn-lift mt-5 w-full rounded-lg bg-emerald-500 py-3 text-sm font-semibold text-white hover:bg-emerald-400 disabled:opacity-50"
                   >
                     {payment.paying ? '确认中…' : '我已完成支付（演示确认）'}
                   </button>

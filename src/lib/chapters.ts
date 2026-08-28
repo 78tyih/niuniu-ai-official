@@ -23,5 +23,6 @@ export const CHAPTERS: Chapter[] = [
   { no: '10', slug: 'ai-assistant', title: 'AI 交易助手', desc: '完整工作流，从头到尾走一遍。', video: v('ai-assistant'), poster: p('ai-assistant') },
 ]
 
-/** 首页剧场精选 5 段 */
-export const HOME_CHAPTERS = CHAPTERS.slice(0, 5)
+/** 首页剧场精选 5 段（顺序即展示顺序） */
+const HOME_SLUGS = ['ai-analysis', 'ai-review', 'position-diagnosis', 'ai-layout', 'ai-replay']
+export const HOME_CHAPTERS = HOME_SLUGS.map((s) => CHAPTERS.find((c) => c.slug === s)!)

@@ -31,7 +31,7 @@ export default function Nav() {
         scrolled ? 'border-b border-[#e5e7eb]' : 'border-b border-transparent'
       }`}
     >
-      <div className="mx-auto flex h-16 max-w-[1280px] items-center justify-between px-6 sm:px-10">
+      <div className="mx-auto flex h-[68px] max-w-[1280px] items-center justify-between px-6 sm:px-10">
         <Link to="/" className="flex items-center gap-2.5">
           <img src="/assets/logo.png" alt="牛牛AI Logo" className="h-8 w-auto" />
           <span className="font-display text-[17px] font-bold tracking-wide text-[#111111]">
@@ -39,7 +39,7 @@ export default function Nav() {
           </span>
         </Link>
 
-        <nav className="hidden items-center gap-9 md:flex">
+        <nav className="hidden items-center gap-[clamp(36px,3.5vw,52px)] md:flex">
           {links.map((l) => (
             <Link
               key={l.to}
