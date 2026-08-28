@@ -36,6 +36,19 @@ const AUDIENCE: Record<string, { who: string; line: string }> = {
 
 const INCLUDED = ['AI 行情分析', '风险审核', '持仓诊断', 'AI 日志', '自定义 Prompt']
 
+/** 功能对比（demo 版，具体标准待与用户确认后调整） */
+const COMPARE: { name: string; values: (string | boolean)[] }[] = [
+  { name: 'AI 行情分析', values: [true, true, true, true] },
+  { name: '风险审核', values: [true, true, true, true] },
+  { name: '持仓诊断', values: [true, true, true, true] },
+  { name: 'AI 分析日志', values: [true, true, true, true] },
+  { name: '自定义 Prompt', values: [true, true, true, true] },
+  { name: '多品种分析', values: [false, true, true, true] },
+  { name: '复盘记录保存', values: ['3 天', '30 天', '90 天', '365 天'] },
+  { name: '牛气值额度', values: ['3,980', '19,600', '40,360', '139,600'] },
+  { name: '客服支持', values: ['社群支持', '社群支持', '优先响应', '一对一优先'] },
+]
+
 const PRICING_FAQS = [
   { q: '支持哪些 MT5？', a: '原则上 MT5 环境均可连接，但个别券商的接口限制可能成为例外。建议先联系客服确认你的环境，再决定是否订阅。' },
   { q: '如何连接我的 MT5？', a: '在牛牛AI 控制台中选择「连接 MT5」，按指引完成授权即可。行情与持仓会一键同步，全程只读，不触碰资金。' },
@@ -186,6 +199,50 @@ export default function Pricing() {
               </span>
             ))}
           </div>
+
+          {/* 功能对比表 */}
+          {plans.length === 4 && (
+            <div className="reveal mt-10">
+              <h2 className="font-display text-center text-[22px] font-bold sm:text-[26px]">功能对比</h2>
+              <div className="mt-6 overflow-x-auto rounded-xl border border-[#e5e7eb] bg-white">
+                <table className="w-full min-w-[640px] border-collapse text-[13px]">
+                  <thead>
+                    <tr className="border-b border-[#e5e7eb] text-left">
+                      <th className="px-5 py-3.5 font-semibold text-[#6b7280]">功能 / 权益</th>
+                      {plans.map((p) => (
+                        <th key={p.code} className={`px-5 py-3.5 text-center font-bold ${p.code === 'yearly' ? 'text-[#f97316]' : ''}`}>
+                          {p.name}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {COMPARE.map((row, ri) => (
+                      <tr key={row.name} className={ri % 2 === 1 ? 'bg-[#fafaf8]' : ''}>
+                        <td className="px-5 py-3 font-medium text-[#374151]">{row.name}</td>
+                        {row.values.map((v, ci) => (
+                          <td key={ci} className="px-5 py-3 text-center">
+                            {v === true ? (
+                              <svg className="mx-auto h-4 w-4 text-[#f97316]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.4}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                              </svg>
+                            ) : v === false ? (
+                              <span className="text-[#d1d5db]">—</span>
+                            ) : (
+                              <span className="font-medium text-[#111111]">{v}</span>
+                            )}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="mt-3 text-center text-[12px] text-[#9ca3af]">
+                功能对比为演示版本，各方案具体功能标准以正式确认后的版本为准。
+              </p>
+            </div>
+          )}
 
           <p className="mx-auto mt-5 max-w-2xl text-center text-xs leading-relaxed text-[#9ca3af]">
             官方 C 端直营价；经销商成交价以其签约文件及后台显示为准。牛气值按 50 元 = 1000 点折算，使用规则以正式版本为准。AI 分析仅供辅助参考，不构成投资建议。

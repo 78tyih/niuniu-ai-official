@@ -22,7 +22,7 @@ const CAPABILITIES = [
 ]
 
 const GALLERY = [
-  { title: 'AI 分析', img: '/screenshots/ai-analysis.jpg', big: true },
+  { title: 'AI 分析', img: '/screenshots/ai-analysis.jpg' },
   { title: '持仓诊断', img: '/screenshots/position-diagnosis.jpg' },
   { title: '风险审核', img: '/screenshots/ai-review.jpg' },
   { title: '提示词', img: '/screenshots/custom-prompt.jpg' },
@@ -121,12 +121,14 @@ function Workflow() {
   )
 }
 
-/** 首页演示剧场：Hover 章节播放 2–3 秒静音 Preview，点击播放完整 Demo */
+/** 首页演示剧场：滚动进入自动播放导览；Hover 章节播放静音 Preview；点击播放完整 Demo */
 function Theater() {
   const [active, setActive] = useState(0)
-  const [mode, setMode] = useState<'idle' | 'preview' | 'full'>('idle')
+  const [mode, setMode] = useState<'idle' | 'preview' | 'full' | 'guide'>('idle')
   const videoRef = useRef<HTMLVideoElement>(null)
+  const boxRef = useRef<HTMLDivElement>(null)
   const timerRef = useRef<number | null>(null)
+  const guidedRef = useRef(false)
   const chapter = HOME_CHAPTERS[active]
 
   const clearTimer = () => {
@@ -137,7 +139,7 @@ function Theater() {
   }
 
   const playPreview = (i: number) => {
-    if (mode === 'full' && i === active) return
+    if ((mode === 'full' || mode === 'guide') && i === active) return
     clearTimer()
     setActive(i)
     setMode('preview')
@@ -153,6 +155,25 @@ function Theater() {
     setMode('full')
   }
 
+  // 滚动进入视口 → 自动导览（从第一章开始连播）
+  useEffect(() => {
+    const box = boxRef.current
+    if (!box || guidedRef.current) return
+    const io = new IntersectionObserver(
+      ([e]) => {
+        if (e.isIntersecting && !guidedRef.current) {
+          guidedRef.current = true
+          setActive(0)
+          setMode('guide')
+          io.disconnect()
+        }
+      },
+      { threshold: 0.45 },
+    )
+    io.observe(box)
+    return () => io.disconnect()
+  }, [])
+
   useEffect(() => {
     const el = videoRef.current
     if (!el || mode === 'idle') return
@@ -164,10 +185,22 @@ function Theater() {
 
   useEffect(() => clearTimer, [])
 
+  const onEnded = () => {
+    if (mode === 'guide') {
+      if (active < HOME_CHAPTERS.length - 1) {
+        setActive(active + 1)
+      } else {
+        setMode('idle')
+      }
+    } else {
+      setMode('idle')
+    }
+  }
+
   return (
     <div className="reveal mt-12 grid items-start gap-6 lg:grid-cols-[75%_25%]">
       {/* 大播放器 */}
-      <div className="relative overflow-hidden rounded-xl border border-[#e5e7eb] bg-[#0b1724] shadow-[0_24px_60px_-32px_rgba(11,23,36,0.45)]">
+      <div ref={boxRef} className="relative overflow-hidden rounded-xl border border-[#e5e7eb] bg-[#0b1724] shadow-[0_24px_60px_-32px_rgba(11,23,36,0.45)]">
         <video
           ref={videoRef}
           key={chapter.slug}
@@ -178,13 +211,13 @@ function Theater() {
           preload="metadata"
           controls={mode === 'full'}
           onClick={() => (mode === 'full' ? undefined : playFull(active))}
-          onEnded={() => setMode('idle')}
+          onEnded={onEnded}
           className={`block aspect-video w-full object-cover ${mode === 'full' ? '' : 'cursor-pointer'}`}
           aria-label={chapter.title}
         />
         {mode !== 'full' && (
           <button
-            onClick={() => playFull(active)}
+            onClick={() => (mode === 'guide' ? (videoRef.current?.pause(), setMode('idle')) : playFull(active))}
             className="absolute inset-0 flex items-center justify-center bg-black/20 transition-colors hover:bg-black/30"
             aria-label={`播放 ${chapter.title}`}
           >
@@ -200,9 +233,18 @@ function Theater() {
                 {chapter.no} · {chapter.title}
               </span>
               <span className="mt-0.5 block text-xs text-white/60">
-                {mode === 'preview' ? '静音预览中 · 点击播放完整演示' : '默认静音 · 点击播放'}
+                {mode === 'guide'
+                  ? `自动导览中（${active + 1}/${HOME_CHAPTERS.length}）· 点击暂停`
+                  : mode === 'preview'
+                    ? '静音预览中 · 点击播放完整演示'
+                    : '默认静音 · 点击播放'}
               </span>
             </span>
+            {mode === 'guide' && (
+              <span className="absolute right-4 top-4 rounded-full bg-[#f97316] px-3 py-1 text-[11px] font-bold text-white">
+                自动导览
+              </span>
+            )}
           </button>
         )}
       </div>
@@ -351,53 +393,23 @@ export default function Home() {
         </div>
       </Section>
 
-      {/* 05 真实产品界面画廊 */}
+      {/* 05 真实产品界面画廊（统一规整：同尺寸、同间距、同说明行高） */}
       <Section bordered>
         <SectionHead title="真实产品界面" desc="你看到的每一张图，都来自牛牛 AI 的真实操作界面。" />
         <div className="reveal mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {GALLERY.map((g) => (
-            <figure key={g.title} className={g.big ? 'sm:col-span-2 lg:row-span-2' : ''}>
+            <figure key={g.title}>
               <div className="shot-zoom overflow-hidden rounded-xl border border-[#e5e7eb] bg-white">
                 <img
                   src={g.img}
                   alt={`牛牛AI ${g.title}界面`}
                   loading="lazy"
-                  className={`block w-full object-cover object-top ${g.big ? 'aspect-[16/9] lg:aspect-auto lg:h-full' : 'aspect-[16/9]'}`}
+                  className="block aspect-[16/10] w-full object-cover object-top"
                 />
               </div>
               <figcaption className="mt-2.5 text-[13px] font-medium text-[#6b7280]">{g.title}</figcaption>
             </figure>
           ))}
-        </div>
-      </Section>
-
-      {/* 05b 手机端同步使用 */}
-      <Section variant="compact" tinted bordered>
-        <SectionHead
-          title="手机端同样可用"
-          desc="出差、通勤、不在电脑前，也能在手机上完成分析与复盘。"
-        />
-        <div className="reveal mx-auto mt-10 grid max-w-4xl grid-cols-1 gap-6 sm:grid-cols-3">
-          {(['ai-analysis', 'position-diagnosis', 'ai-replay'] as const).map((slug) => {
-            const c = HOME_CHAPTERS.find((x) => x.slug === slug)!
-            return (
-              <figure key={slug}>
-                <div className="shot-zoom overflow-hidden rounded-2xl border border-[#e5e7eb] bg-[#0b1724] shadow-[0_20px_48px_-32px_rgba(11,23,36,0.4)]">
-                  <video
-                    src={c.videoMobile}
-                    poster={c.posterMobile}
-                    muted
-                    playsInline
-                    preload="metadata"
-                    controls
-                    className="block aspect-[9/16] w-full object-cover"
-                    aria-label={`手机端 ${c.title}`}
-                  />
-                </div>
-                <figcaption className="mt-3 text-center text-[13px] font-medium text-[#6b7280]">{c.title}</figcaption>
-              </figure>
-            )
-          })}
         </div>
       </Section>
 
