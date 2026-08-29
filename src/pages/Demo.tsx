@@ -93,34 +93,54 @@ export default function Demo() {
       {/* Video Theater */}
       <section className="pb-[64px] sm:pb-[80px]">
         <div className="mx-auto max-w-[1280px] px-6 sm:px-10">
-          {/* 横向章节条（置于视频上方）：与播放进度双向联动 */}
-          <div className="scrollbar-none -mx-6 mb-5 flex gap-2 overflow-x-auto px-6 pb-1 sm:mx-0 sm:px-0">
-            {DEMO_CHAPTERS.map((c, i) => {
-              const isActive = i === active
-              return (
-                <button
-                  key={c.slug}
-                  onClick={() => setActive(i)}
-                  className={`relative min-w-[132px] shrink-0 overflow-hidden rounded-lg px-4 py-3 text-left transition-colors duration-200 ${
-                    isActive ? 'bg-white shadow-sm ring-1 ring-[#e5e7eb]' : 'hover:bg-white'
-                  }`}
-                >
-                  <span className={`block font-mono text-[11px] font-semibold ${isActive ? 'text-[#f97316]' : 'text-[#d1d5db]'}`}>
-                    {c.no}
-                  </span>
-                  <span className={`mt-0.5 block whitespace-nowrap text-[14px] ${isActive ? 'font-semibold' : 'font-medium text-[#374151]'}`}>
-                    {c.title}
-                  </span>
-                  {/* 进度填充（video → chapter 联动） */}
-                  <span className="absolute inset-x-0 bottom-0 h-[2px] bg-[#f3f4f6]">
-                    <span
-                      className={`block h-full bg-[#f97316] transition-[width] duration-150 ${isActive ? '' : 'w-0'}`}
-                      style={isActive ? { width: `${Math.round(progress * 100)}%` } : undefined}
-                    />
-                  </span>
-                </button>
-              )
-            })}
+          {/* 阶段进度条（置于视频上方）：5 段连为一体，与播放进度双向联动 */}
+          <div className="scrollbar-none -mx-6 mb-5 overflow-x-auto px-6 pb-1 sm:mx-0 sm:px-0">
+            <div className="flex min-w-[640px] overflow-hidden rounded-xl border border-[#e5e7eb] bg-white">
+              {DEMO_CHAPTERS.map((c, i) => {
+                const isActive = i === active
+                const isDone = i < active
+                return (
+                  <button
+                    key={c.slug}
+                    onClick={() => setActive(i)}
+                    className={`relative flex-1 px-4 py-3.5 text-left transition-colors duration-200 ${
+                      i > 0 ? 'border-l border-[#eceae6]' : ''
+                    } ${isActive ? 'bg-[#f97316]/[0.06]' : 'hover:bg-[#fafaf8]'}`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <span
+                        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full font-mono text-[10px] font-bold transition-colors ${
+                          isActive
+                            ? 'bg-[#f97316] text-white'
+                            : isDone
+                              ? 'bg-[#111111] text-white'
+                              : 'bg-[#f3f4f6] text-[#9ca3af]'
+                        }`}
+                      >
+                        {isDone ? '✓' : c.no}
+                      </span>
+                      <span
+                        className={`whitespace-nowrap text-[13px] sm:text-[14px] ${
+                          isActive ? 'font-semibold text-[#111111]' : isDone ? 'font-medium text-[#6b7280]' : 'font-medium text-[#9ca3af]'
+                        }`}
+                      >
+                        {c.title}
+                      </span>
+                    </span>
+                    {/* 当前段内播放进度（video → 进度条联动） */}
+                    <span className="absolute inset-x-0 bottom-0 h-[2.5px] bg-transparent">
+                      {isActive && (
+                        <span
+                          className="block h-full bg-[#f97316] transition-[width] duration-150"
+                          style={{ width: `${Math.round(progress * 100)}%` }}
+                        />
+                      )}
+                      {isDone && <span className="block h-full w-full bg-[#111111]/15" />}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
           </div>
 
           <div className="overflow-hidden rounded-xl border border-[#e5e7eb] bg-[#0b1724] shadow-[0_24px_60px_-32px_rgba(11,23,36,0.45)]">
