@@ -50,6 +50,28 @@ async function requireUser(req, res) {
   return data.user
 }
 
+// 管理员白名单（客服圆圆本人）；也可用环境变量 ADMIN_EMAILS 覆盖，逗号分隔
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '010708lei@gmail.com')
+  .split(',').map((s) => s.trim().toLowerCase()).filter(Boolean)
+
+async function requireAdmin(req, res) {
+  const user = await requireUser(req, res)
+  if (!user) return null
+  const isAdmin = ADMIN_EMAILS.includes((user.email || '').toLowerCase())
+    || user.user_metadata?.role === 'admin'
+  if (!isAdmin) {
+    res.status(403).json({ error: 'forbidden', message: '需要管理员权限' })
+    return null
+  }
+  return user
+}
+
+async function audit(adminId, action, detail = {}) {
+  try {
+    await admin.from('admin_audit_log').insert({ admin_id: adminId, action, detail })
+  } catch { /* 审计失败不阻塞主流程 */ }
+}
+
 app.get('/', (_req, res) => res.json({ name: '牛牛AI API', ok: true }))
 
 // 部署自检：只暴露布尔与耗时，不泄露任何密钥
@@ -99,7 +121,7 @@ app.get('/subscription', async (req, res) => {
   if (!user) return
   const { data: sub } = await admin.from('subscriptions').select('*, plans(name)').eq('user_id', user.id).maybeSingle()
   const { data: orders } = await admin.from('orders')
-    .select('order_no, plan_code, amount_cents, channel, status, created_at, paid_at, plans(name)')
+    .select('order_no, plan_code, amount_cents, channel, status, delivered_code, delivery_status, created_at, paid_at, plans(name)')
     .eq('user_id', user.id).order('id', { ascending: false }).limit(20)
   res.json({
     subscription: sub ? { ...sub, plan_name: sub.plans?.name, plans: undefined } : null,
@@ -183,6 +205,193 @@ app.post('/pay/stripe-verify', async (req, res) => {
   } catch (err) {
     res.status(502).json({ error: 'stripe_error', message: String(err?.message || err) })
   }
+})
+
+// 单笔订单查询（支付结果页轮询用）：仅本人可见
+app.get('/orders/:orderNo', async (req, res) => {
+  if (!admin) return configMissing(res)
+  const user = await requireUser(req, res)
+  if (!user) return
+  const { data: order } = await admin.from('orders')
+    .select('order_no, plan_code, amount_cents, channel, status, delivered_code, delivery_status, created_at, paid_at, plans(name)')
+    .eq('order_no', req.params.orderNo).eq('user_id', user.id).maybeSingle()
+  if (!order) return res.status(404).json({ error: 'order_not_found' })
+  res.json({ order: { ...order, plan_name: order.plans?.name, plans: undefined } })
+})
+
+// ============ 用户反馈（登录可选） ============
+app.post('/feedback', async (req, res) => {
+  if (!admin) return configMissing(res)
+  const { type, content, contact } = req.body || {}
+  if (!content || !String(content).trim()) {
+    return res.status(400).json({ error: 'invalid_content', message: '请填写反馈内容' })
+  }
+  // 尝试识别登录用户，不强制
+  let userId = null
+  const header = req.headers.authorization || ''
+  if (header.startsWith('Bearer ')) {
+    const { data } = await admin.auth.getUser(header.slice(7))
+    userId = data?.user?.id || null
+  }
+  const { error } = await admin.from('feedback').insert({
+    user_id: userId,
+    type: ['bug', 'suggest', 'consult', 'other'].includes(type) ? type : 'other',
+    content: String(content).slice(0, 2000),
+    contact: contact ? String(contact).slice(0, 200) : null,
+  })
+  if (error) return res.status(500).json({ error: 'db_error', message: error.message })
+  res.json({ ok: true, message: '已收到你的反馈，感谢！' })
+})
+
+// ============ 管理台 API ============
+app.get('/admin/stats', async (req, res) => {
+  if (!admin) return configMissing(res)
+  const user = await requireAdmin(req, res)
+  if (!user) return
+  const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0)
+  const todayIso = todayStart.toISOString()
+
+  const [ordersAll, ordersToday, paidAgg, usersToday, stock, pendingStock] = await Promise.all([
+    admin.from('orders').select('id', { count: 'exact', head: true }),
+    admin.from('orders').select('id', { count: 'exact', head: true }).gte('created_at', todayIso),
+    admin.from('orders').select('amount_cents').eq('status', 'paid'),
+    admin.from('profiles').select('id', { count: 'exact', head: true }).gte('created_at', todayIso),
+    admin.from('card_keys').select('plan_code').eq('status', 'available'),
+    admin.from('orders').select('order_no, plan_code, paid_at').eq('delivery_status', 'out_of_stock').order('paid_at', { ascending: false }).limit(20),
+  ])
+  const revenueCents = (paidAgg.data || []).reduce((s, o) => s + (o.amount_cents || 0), 0)
+  const stockByPlan = {}
+  for (const k of stock.data || []) stockByPlan[k.plan_code] = (stockByPlan[k.plan_code] || 0) + 1
+  res.json({
+    ordersTotal: ordersAll.count || 0,
+    ordersToday: ordersToday.count || 0,
+    revenueCents,
+    usersToday: usersToday.count || 0,
+    stockByPlan,
+    outOfStockOrders: pendingStock.data || [],
+  })
+})
+
+app.get('/admin/orders', async (req, res) => {
+  if (!admin) return configMissing(res)
+  const user = await requireAdmin(req, res)
+  if (!user) return
+  const { status, delivery, q } = req.query
+  const page = Math.max(1, parseInt(req.query.page) || 1)
+  const size = 20
+  let query = admin.from('orders')
+    .select('id, order_no, user_id, plan_code, amount_cents, channel, status, delivered_code, delivery_status, created_at, paid_at, plans(name)', { count: 'exact' })
+    .order('id', { ascending: false })
+    .range((page - 1) * size, page * size - 1)
+  if (status) query = query.eq('status', status)
+  if (delivery) query = query.eq('delivery_status', delivery)
+  if (q) query = query.ilike('order_no', `%${q}%`)
+  const { data, count, error } = await query
+  if (error) return res.status(500).json({ error: 'db_error', message: error.message })
+  res.json({
+    total: count || 0, page, size,
+    orders: (data || []).map((o) => ({ ...o, plan_name: o.plans?.name, plans: undefined })),
+  })
+})
+
+// 手动补单发货（库存回补后）
+app.post('/admin/orders/:orderNo/fulfill', async (req, res) => {
+  if (!admin) return configMissing(res)
+  const user = await requireAdmin(req, res)
+  if (!user) return
+  const { data, error } = await admin.rpc('fulfill_order', { p_order_no: req.params.orderNo })
+  if (error) return res.status(500).json({ error: 'db_error', message: error.message })
+  await audit(user.id, 'order_fulfill', { order_no: req.params.orderNo, result: data })
+  res.json({ result: data })
+})
+
+// 卡密批量导入：textarea 每行一条，格式 `码` 或 `码,成本价(元)`
+app.post('/admin/card-keys/import', async (req, res) => {
+  if (!admin) return configMissing(res)
+  const user = await requireAdmin(req, res)
+  if (!user) return
+  const { planCode, batch, text } = req.body || {}
+  const { data: plan } = await admin.from('plans').select('code').eq('code', planCode).maybeSingle()
+  if (!plan) return res.status(404).json({ error: 'plan_not_found' })
+  const lines = String(text || '').split('\n').map((l) => l.trim()).filter(Boolean)
+  if (!lines.length) return res.status(400).json({ error: 'empty_input', message: '请粘贴卡密，每行一条' })
+  if (lines.length > 500) return res.status(400).json({ error: 'too_many', message: '单次最多导入 500 条' })
+
+  const rows = []
+  const skipped = []
+  for (const line of lines) {
+    const [codeRaw, costRaw] = line.split(/[,，]/).map((s) => (s || '').trim())
+    const code = codeRaw
+    if (!code) { skipped.push({ line, reason: 'empty_code' }); continue }
+    let cost_cents = null
+    if (costRaw) {
+      const n = Number(costRaw)
+      if (Number.isFinite(n) && n >= 0) cost_cents = Math.round(n * 100)
+    }
+    rows.push({ code, plan_code: planCode, batch: batch || '', cost_cents })
+  }
+  const { data: inserted, error } = await admin.from('card_keys')
+    .upsert(rows, { onConflict: 'code', ignoreDuplicates: true })
+    .select('id')
+  if (error) return res.status(500).json({ error: 'db_error', message: error.message })
+  await audit(user.id, 'card_keys_import', { plan_code: planCode, batch, total: lines.length, imported: inserted?.length || 0 })
+  res.json({ ok: true, total: lines.length, imported: inserted?.length || 0, duplicated: rows.length - (inserted?.length || 0), skipped })
+})
+
+app.get('/admin/card-keys', async (req, res) => {
+  if (!admin) return configMissing(res)
+  const user = await requireAdmin(req, res)
+  if (!user) return
+  const { status, planCode, batch } = req.query
+  const page = Math.max(1, parseInt(req.query.page) || 1)
+  const size = 50
+  let query = admin.from('card_keys')
+    .select('*', { count: 'exact' })
+    .order('id', { ascending: false })
+    .range((page - 1) * size, page * size - 1)
+  if (status) query = query.eq('status', status)
+  if (planCode) query = query.eq('plan_code', planCode)
+  if (batch) query = query.eq('batch', batch)
+  const { data, count, error } = await query
+  if (error) return res.status(500).json({ error: 'db_error', message: error.message })
+  // 批次列表供筛选
+  const { data: batches } = await admin.from('card_keys').select('batch').neq('batch', '').limit(200)
+  res.json({ total: count || 0, page, size, keys: data || [], batches: [...new Set((batches || []).map((b) => b.batch))] })
+})
+
+app.post('/admin/card-keys/:id/disable', async (req, res) => {
+  if (!admin) return configMissing(res)
+  const user = await requireAdmin(req, res)
+  if (!user) return
+  const { data: key } = await admin.from('card_keys').select('id, status').eq('id', req.params.id).maybeSingle()
+  if (!key) return res.status(404).json({ error: 'not_found' })
+  if (key.status !== 'available') return res.status(400).json({ error: 'not_available', message: '仅可用状态的卡密可禁用' })
+  const { error } = await admin.from('card_keys').update({ status: 'disabled' }).eq('id', key.id)
+  if (error) return res.status(500).json({ error: 'db_error', message: error.message })
+  await audit(user.id, 'card_key_disable', { id: key.id })
+  res.json({ ok: true })
+})
+
+app.get('/admin/feedback', async (req, res) => {
+  if (!admin) return configMissing(res)
+  const user = await requireAdmin(req, res)
+  if (!user) return
+  const { status } = req.query
+  let query = admin.from('feedback').select('*').order('id', { ascending: false }).limit(100)
+  if (status) query = query.eq('status', status)
+  const { data, error } = await query
+  if (error) return res.status(500).json({ error: 'db_error', message: error.message })
+  res.json({ feedback: data || [] })
+})
+
+app.post('/admin/feedback/:id/done', async (req, res) => {
+  if (!admin) return configMissing(res)
+  const user = await requireAdmin(req, res)
+  if (!user) return
+  const { error } = await admin.from('feedback').update({ status: 'done' }).eq('id', req.params.id)
+  if (error) return res.status(500).json({ error: 'db_error', message: error.message })
+  await audit(user.id, 'feedback_done', { id: Number(req.params.id) })
+  res.json({ ok: true })
 })
 
 export default app

@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import Nav from '../sections/Nav'
 import Footer from '../sections/Footer'
 import { useReveal } from '../hooks/useReveal'
+import { api } from '../lib/api'
 
 type FeedCategory = '产品更新' | 'Prompt 分享' | '使用技巧' | '常见问题'
 
@@ -50,10 +51,32 @@ export default function Community() {
   const [fbDesc, setFbDesc] = useState('')
   const [fbContact, setFbContact] = useState('')
   const [fbSent, setFbSent] = useState(false)
+  const [fbSending, setFbSending] = useState(false)
+  const [fbError, setFbError] = useState('')
 
-  const submitFeedback = (e: FormEvent) => {
+  const FB_TYPE_MAP: Record<string, string> = {
+    功能建议: 'suggest',
+    使用问题: 'bug',
+    支付与订阅: 'consult',
+    其他: 'other',
+  }
+
+  const submitFeedback = async (e: FormEvent) => {
     e.preventDefault()
-    setFbSent(true)
+    if (fbSending) return
+    setFbSending(true)
+    setFbError('')
+    try {
+      await api('/feedback', {
+        body: { type: FB_TYPE_MAP[fbType] || 'other', content: fbDesc, contact: fbContact || undefined },
+        auth: true,
+      })
+      setFbSent(true)
+    } catch (err) {
+      setFbError((err as Error).message || '提交失败，请稍后重试')
+    } finally {
+      setFbSending(false)
+    }
   }
 
   const items = FEED.filter((f) => tab === '全部' || f.cat === tab)
@@ -269,10 +292,11 @@ export default function Community() {
                   placeholder="邮箱 / 手机号 / QQ"
                 />
               </div>
-              <button type="submit" className="btn-lift rounded-lg bg-[#f97316] px-8 py-3 text-sm font-semibold text-white hover:bg-[#ea6a0c]">
-                提交反馈
+              <button type="submit" disabled={fbSending} className="btn-lift rounded-lg bg-[#f97316] px-8 py-3 text-sm font-semibold text-white hover:bg-[#ea6a0c] disabled:opacity-50">
+                {fbSending ? '提交中…' : '提交反馈'}
               </button>
-              {fbSent && <p className="text-sm text-emerald-600">已收到你的反馈（演示环境）。紧急问题建议直接联系客服或加入社群。</p>}
+              {fbSent && <p className="text-sm text-emerald-600">已收到你的反馈，感谢！紧急问题建议直接联系客服或加入社群。</p>}
+              {fbError && <p className="text-sm text-[#d4530f]">{fbError}</p>}
             </form>
           </div>
         </div>

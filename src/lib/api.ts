@@ -53,6 +53,8 @@ export interface Order {
   amount_cents: number
   channel: string
   status: string
+  delivered_code: string | null
+  delivery_status: 'none' | 'delivered' | 'out_of_stock'
   created_at: string
   paid_at: string | null
 }

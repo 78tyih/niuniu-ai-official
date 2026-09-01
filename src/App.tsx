@@ -7,6 +7,7 @@ import Community from './pages/Community'
 import Login from './pages/Login'
 import Account from './pages/Account'
 import PaymentResult from './pages/PaymentResult'
+import Admin from './pages/Admin'
 
 export default function App() {
   return (
@@ -20,6 +21,7 @@ export default function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/account" element={<Account />} />
       <Route path="/payment/result" element={<PaymentResult />} />
+      <Route path="/admin" element={<Admin />} />
     </Routes>
   )
 }

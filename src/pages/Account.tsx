@@ -111,6 +111,32 @@ export default function Account() {
           )}
         </div>
 
+        {/* 授权码（已发货的卡密） */}
+        {orders.some((o) => o.delivered_code) && (
+          <div className="card-light mt-6 overflow-hidden rounded-2xl">
+            <div className="border-b border-[#f0eee9] bg-[#faf9f6] px-7 py-4 text-sm font-semibold">我的授权码</div>
+            <div className="divide-y divide-[#f5f3ee]">
+              {orders.filter((o) => o.delivered_code).map((o) => (
+                <div key={o.order_no} className="flex flex-wrap items-center gap-3 px-7 py-4">
+                  <span className="rounded-full bg-[#ff6a1a]/10 px-2.5 py-1 text-xs font-medium text-[#d4530f]">{o.plan_name}</span>
+                  <code className="flex-1 select-all rounded-lg bg-[#f5f3ee] px-3 py-2 font-mono text-sm font-semibold tracking-wide">
+                    {o.delivered_code}
+                  </code>
+                  <button
+                    onClick={() => { navigator.clipboard?.writeText(o.delivered_code || '') }}
+                    className="rounded-lg border border-[#e0ddd6] px-3.5 py-2 text-xs font-medium text-[#6b7280] transition-colors hover:border-[#14171f] hover:text-[#14171f]"
+                  >
+                    复制
+                  </button>
+                </div>
+              ))}
+            </div>
+            <p className="border-t border-[#f0eee9] bg-[#faf9f6] px-7 py-3 text-xs text-[#9aa0ad]">
+              在牛牛AI 软件内输入授权码完成激活。如授权码无法使用，请联系客服。
+            </p>
+          </div>
+        )}
+
         {/* 订单记录 */}
         <div className="card-light mt-6 overflow-hidden rounded-2xl">
           <div className="border-b border-[#f0eee9] bg-[#faf9f6] px-7 py-4 text-sm font-semibold">订单记录</div>
@@ -138,9 +164,15 @@ export default function Account() {
                       <td className="px-4 py-3.5 text-[#6b7280]">{CHANNEL_LABEL[o.channel] || o.channel}</td>
                       <td className="px-4 py-3.5">
                         <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                          o.status === 'paid' ? 'bg-emerald-50 text-emerald-600' : 'bg-[#ff6a1a]/10 text-[#d4530f]'
+                          o.status === 'paid'
+                            ? o.delivery_status === 'out_of_stock'
+                              ? 'bg-amber-50 text-amber-600'
+                              : 'bg-emerald-50 text-emerald-600'
+                            : 'bg-[#ff6a1a]/10 text-[#d4530f]'
                         }`}>
-                          {o.status === 'paid' ? '已支付' : '待支付'}
+                          {o.status === 'paid'
+                            ? o.delivery_status === 'out_of_stock' ? '已支付 · 待发码' : '已支付'
+                            : '待支付'}
                         </span>
                       </td>
                       <td className="px-7 py-3.5 text-xs text-[#9aa0ad]">
