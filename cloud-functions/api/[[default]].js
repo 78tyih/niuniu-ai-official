@@ -3,6 +3,7 @@
 import express from 'express'
 import { createClient } from '@supabase/supabase-js'
 import Stripe from 'stripe'
+import nodemailer from 'nodemailer'
 import { randomBytes } from 'node:crypto'
 
 const app = express()
@@ -29,6 +30,44 @@ const admin = SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY
     })
   : null
 const stripe = STRIPE_SECRET_KEY ? new Stripe(STRIPE_SECRET_KEY) : null
+
+// ============ 事务邮件（SMTP 未配置时自动降级为不发送） ============
+const mailer = process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS
+  ? nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT || 465),
+      secure: String(process.env.SMTP_PORT || '465') === '465',
+      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+      connectionTimeout: 8000,
+    })
+  : null
+const MAIL_FROM = process.env.SMTP_FROM || process.env.SMTP_USER || ''
+const ADMIN_NOTIFY_EMAIL = process.env.ADMIN_NOTIFY_EMAIL || '010708lei@gmail.com'
+
+async function sendMail(to, subject, text, html) {
+  if (!mailer) return false
+  try {
+    await mailer.sendMail({ from: MAIL_FROM, to, subject, text, html })
+    return true
+  } catch (err) {
+    console.error('[mail] send failed:', err?.message || err)
+    return false
+  }
+}
+
+const orderPaidHtml = ({ planName, orderNo, amount, code }) => `
+  <div style="font-family:-apple-system,'PingFang SC',sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;color:#14171f">
+    <h2 style="margin:0 0 8px">支付成功 · 牛牛AI</h2>
+    <p style="color:#6b7280;font-size:14px">你购买的 <b>${planName}</b> 已生效（订单号 ${orderNo}，金额 ¥${amount}）。</p>
+    ${code ? `
+    <div style="margin:20px 0;padding:16px;border-radius:12px;background:#f5f3ee">
+      <div style="font-size:12px;color:#9aa0ad">你的授权码（在牛牛AI 软件内输入激活）</div>
+      <div style="margin-top:8px;font-family:monospace;font-size:16px;font-weight:700;letter-spacing:1px">${code}</div>
+    </div>` : `
+    <p style="font-size:14px;color:#d4530f">该套餐授权码暂时缺货，客服补码后会第一时间发给你，也可以直接回复本邮件或联系客服。</p>`}
+    <p style="font-size:13px;color:#6b7280">也可以随时登录 <a href="https://niuniuai.app/account">niuniuai.app/account</a> 查看订阅与授权码。</p>
+    <p style="font-size:12px;color:#9aa0ad;margin-top:24px">客服时间 9:00–18:00 · QQ 群 638778129<br>牛牛AI 是交易流程辅助工具，不承诺任何收益，交易风险由你自行承担。</p>
+  </div>`
 
 const configMissing = (res) => res.status(503).json({
   error: 'backend_not_configured',
@@ -174,6 +213,41 @@ app.post('/orders', async (req, res) => {
   })
 })
 
+// 支付成功后的邮件通知（客户收授权码 + 缺货时通知管理员）
+async function notifyOrderPaid(orderNo) {
+  try {
+    const { data: order } = await admin.from('orders')
+      .select('order_no, amount_cents, delivered_code, delivery_status, user_id, plans(name)')
+      .eq('order_no', orderNo).maybeSingle()
+    if (!order) return
+    const { data: u } = await admin.auth.admin.getUserById(order.user_id)
+    const email = u?.user?.email
+    const planName = order.plans?.name || order.order_no
+    if (email) {
+      await sendMail(
+        email,
+        `支付成功 · 牛牛AI ${planName}`,
+        `订单 ${order.order_no} 已支付成功。${order.delivered_code ? `你的授权码：${order.delivered_code}` : '授权码补货后会尽快发给你。'} 登录 https://niuniuai.app/account 可随时查看。`,
+        orderPaidHtml({
+          planName,
+          orderNo: order.order_no,
+          amount: (order.amount_cents / 100).toLocaleString('zh-CN'),
+          code: order.delivered_code,
+        }),
+      )
+    }
+    if (order.delivery_status === 'out_of_stock') {
+      await sendMail(
+        ADMIN_NOTIFY_EMAIL,
+        `【缺货告警】${planName} 订单 ${order.order_no} 待发码`,
+        `订单 ${order.order_no}（${planName}）已支付但卡密库存不足，请尽快从上游补码并在管理台手动发货。管理台：https://niuniuai.app/admin`,
+      )
+    }
+  } catch (err) {
+    console.error('[mail] notifyOrderPaid failed:', err?.message || err)
+  }
+}
+
 app.post('/pay/mock-confirm', async (req, res) => {
   if (!admin) return configMissing(res)
   const user = await requireUser(req, res)
@@ -183,6 +257,7 @@ app.post('/pay/mock-confirm', async (req, res) => {
   if (!order) return res.status(404).json({ error: 'order_not_found' })
   const { error } = await admin.rpc('mark_order_paid', { p_order_no: orderNo })
   if (error) return res.status(500).json({ error: 'db_error', message: error.message })
+  await notifyOrderPaid(orderNo)
   res.json({ ok: true, orderNo })
 })
 
@@ -199,6 +274,7 @@ app.post('/pay/stripe-verify', async (req, res) => {
     const session = await stripe.checkout.sessions.retrieve(order.stripe_session_id)
     if (session.payment_status === 'paid') {
       await admin.rpc('mark_order_paid', { p_order_no: orderNo })
+      await notifyOrderPaid(orderNo)
       return res.json({ status: 'paid' })
     }
     res.json({ status: session.payment_status || order.status })
@@ -240,6 +316,11 @@ app.post('/feedback', async (req, res) => {
     contact: contact ? String(contact).slice(0, 200) : null,
   })
   if (error) return res.status(500).json({ error: 'db_error', message: error.message })
+  await sendMail(
+    ADMIN_NOTIFY_EMAIL,
+    `【新反馈】牛牛AI 官网收到一条用户反馈`,
+    `类型：${type}\n内容：${String(content).slice(0, 500)}\n联系方式：${contact || '未填写'}\n\n处理入口：https://niuniuai.app/admin`,
+  )
   res.json({ ok: true, message: '已收到你的反馈，感谢！' })
 })
 
@@ -301,6 +382,7 @@ app.post('/admin/orders/:orderNo/fulfill', async (req, res) => {
   if (!user) return
   const { data, error } = await admin.rpc('fulfill_order', { p_order_no: req.params.orderNo })
   if (error) return res.status(500).json({ error: 'db_error', message: error.message })
+  if (data === 'delivered') await notifyOrderPaid(req.params.orderNo)
   await audit(user.id, 'order_fulfill', { order_no: req.params.orderNo, result: data })
   res.json({ result: data })
 })

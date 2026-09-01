@@ -5,6 +5,8 @@ import Product from './pages/Product'
 import Pricing from './pages/Pricing'
 import Community from './pages/Community'
 import Login from './pages/Login'
+import ForgotPassword from './pages/ForgotPassword'
+import ResetPassword from './pages/ResetPassword'
 import Account from './pages/Account'
 import PaymentResult from './pages/PaymentResult'
 import Admin from './pages/Admin'
@@ -19,6 +21,8 @@ export default function App() {
       <Route path="/community" element={<Community />} />
       <Route path="/support" element={<Navigate to="/community" replace />} />
       <Route path="/login" element={<Login />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/account" element={<Account />} />
       <Route path="/payment/result" element={<PaymentResult />} />
       <Route path="/admin" element={<Admin />} />

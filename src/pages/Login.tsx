@@ -101,7 +101,9 @@ export default function Login() {
             <div>
               <div className="mb-1.5 flex items-center justify-between">
                 <label className="text-xs text-[#9aa0ad]">密码{mode === 'register' && '（至少 6 位）'}</label>
-                {mode === 'login' && <span className="cursor-pointer text-xs text-[#9aa0ad] hover:text-[#ff6a1a]">忘记密码？</span>}
+                {mode === 'login' && (
+                  <Link to="/forgot-password" className="text-xs text-[#9aa0ad] hover:text-[#ff6a1a]">忘记密码？</Link>
+                )}
               </div>
               <input
                 type="password"
