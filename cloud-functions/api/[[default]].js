@@ -380,6 +380,25 @@ app.post('/pay/zpay-verify', async (req, res) => {
   }
 })
 
+// 公开订单状态查询（支付回跳用）：订单号本身是不可猜测的凭据，无需登录
+app.get('/public/orders/:orderNo', async (req, res) => {
+  if (!admin) return configMissing(res)
+  const { data: order } = await admin.from('orders')
+    .select('order_no, status, delivered_code, delivery_status, paid_at, plans(name)')
+    .eq('order_no', req.params.orderNo).maybeSingle()
+  if (!order) return res.status(404).json({ error: 'order_not_found' })
+  // 已支付才返回授权码；未支付不暴露任何敏感信息
+  res.json({
+    order: {
+      order_no: order.order_no,
+      plan_name: order.plans?.name,
+      status: order.status,
+      delivery_status: order.status === 'paid' ? order.delivery_status : 'none',
+      delivered_code: order.status === 'paid' ? order.delivered_code : null,
+    },
+  })
+})
+
 // ============ 用户反馈（登录可选） ============
 app.post('/feedback', async (req, res) => {
   if (!admin) return configMissing(res)
