@@ -91,12 +91,17 @@ export default function Pricing() {
     }
     setPayment({ plan, channel, paying: true })
     try {
-      const d = await api<{ orderNo: string; mode: string; qrPayload?: string; checkoutUrl?: string; message?: string }>(
+      const d = await api<{ orderNo: string; mode: string; qrPayload?: string; checkoutUrl?: string; payUrl?: string; message?: string }>(
         '/orders',
         { body: { planCode: plan.code, channel }, auth: true },
       )
       if (d.mode === 'stripe' && d.checkoutUrl) {
         window.location.href = d.checkoutUrl
+        return
+      }
+      if (d.mode === 'zpay' && d.payUrl) {
+        // 跳转到 ZPay 收银台，支付完成后回到 /payment/result
+        window.location.href = d.payUrl
         return
       }
       const qrDataUrl = d.qrPayload

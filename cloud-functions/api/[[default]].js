@@ -4,7 +4,7 @@ import express from 'express'
 import { createClient } from '@supabase/supabase-js'
 import Stripe from 'stripe'
 import nodemailer from 'nodemailer'
-import { randomBytes } from 'node:crypto'
+import { randomBytes, createHash } from 'node:crypto'
 
 const app = express()
 app.use(express.json())
@@ -30,6 +30,22 @@ const admin = SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY
     })
   : null
 const stripe = STRIPE_SECRET_KEY ? new Stripe(STRIPE_SECRET_KEY) : null
+
+// ============ ZPay 聚合支付（微信/支付宝免签通道） ============
+const ZPAY_PID = process.env.ZPAY_PID || ''
+const ZPAY_KEY = process.env.ZPAY_KEY || ''
+const ZPAY_GATEWAY = (process.env.ZPAY_GATEWAY || 'https://zpayz.cn').replace(/\/+$/, '')
+const zpayEnabled = Boolean(ZPAY_PID && ZPAY_KEY)
+
+// ZPay 经典 MD5 签名：参数按 key 升序拼 k=v&...，末尾直接拼密钥，排除 sign/sign_type/空值
+function zpaySign(params) {
+  const str = Object.keys(params)
+    .filter((k) => k !== 'sign' && k !== 'sign_type' && params[k] !== '' && params[k] != null)
+    .sort()
+    .map((k) => `${k}=${params[k]}`)
+    .join('&') + ZPAY_KEY
+  return createHash('md5').update(str, 'utf8').digest('hex')
+}
 
 // ============ 事务邮件（SMTP 未配置时自动降级为不发送） ============
 const mailer = process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS
@@ -122,6 +138,8 @@ app.get('/__health', async (_req, res) => {
       SUPABASE_URL: Boolean(SUPABASE_URL),
       SUPABASE_SERVICE_ROLE_KEY: Boolean(SUPABASE_SERVICE_ROLE_KEY),
       STRIPE_SECRET_KEY: Boolean(STRIPE_SECRET_KEY),
+      ZPAY: Boolean(ZPAY_PID && ZPAY_KEY),
+      SMTP: Boolean(mailer),
       PUBLIC_BASE_URL: Boolean(PUBLIC_BASE_URL),
     },
   }
@@ -204,6 +222,23 @@ app.post('/orders', async (req, res) => {
     } catch (err) {
       return res.status(502).json({ error: 'stripe_error', message: String(err?.message || err) })
     }
+  }
+
+  // ZPay 通道：微信/支付宝真实收款（配置 ZPAY_PID/ZPAY_KEY 后生效）
+  if (zpayEnabled && (channel === 'wechat' || channel === 'alipay')) {
+    const base = PUBLIC_BASE_URL || `https://${req.headers.host}`
+    const params = {
+      pid: ZPAY_PID,
+      type: channel === 'wechat' ? 'wxpay' : 'alipay',
+      out_trade_no: orderNo,
+      notify_url: `${base}/api/pay/zpay-notify`,
+      return_url: `${base}/payment/result?order=${orderNo}`,
+      name: `牛牛AI ${plan.name}`,
+      money: (plan.price_cents / 100).toFixed(2),
+    }
+    const qs = Object.entries({ ...params, sign: zpaySign(params), sign_type: 'MD5' })
+      .map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&')
+    return res.json({ orderNo, channel, mode: 'zpay', payUrl: `${ZPAY_GATEWAY}/submit.php?${qs}` })
   }
 
   res.json({
@@ -293,6 +328,56 @@ app.get('/orders/:orderNo', async (req, res) => {
     .eq('order_no', req.params.orderNo).eq('user_id', user.id).maybeSingle()
   if (!order) return res.status(404).json({ error: 'order_not_found' })
   res.json({ order: { ...order, plan_name: order.plans?.name, plans: undefined } })
+})
+
+// ZPay 异步回调（平台服务器对服务器通知，GET/POST 兼容）
+const zpayNotify = async (req, res) => {
+  if (!admin) return res.status(503).send('fail')
+  if (!zpayEnabled) return res.status(503).send('fail')
+  const p = { ...req.query, ...req.body }
+  if (!p.out_trade_no || !p.sign) return res.status(400).send('fail')
+  if (zpaySign(p) !== String(p.sign).toLowerCase()) {
+    console.warn('[zpay] bad sign for', p.out_trade_no)
+    return res.status(403).send('fail')
+  }
+  if (p.trade_status !== 'TRADE_SUCCESS') return res.send('success')
+  // 金额校验，防伪造
+  const { data: order } = await admin.from('orders').select('amount_cents').eq('order_no', p.out_trade_no).maybeSingle()
+  if (!order) return res.status(404).send('fail')
+  const expected = (order.amount_cents / 100).toFixed(2)
+  if (Number(p.money).toFixed(2) !== expected) {
+    console.warn('[zpay] amount mismatch', p.out_trade_no, p.money, expected)
+    return res.status(400).send('fail')
+  }
+  await admin.rpc('mark_order_paid', { p_order_no: p.out_trade_no })
+  await notifyOrderPaid(p.out_trade_no)
+  res.send('success')
+}
+app.get('/pay/zpay-notify', zpayNotify)
+app.post('/pay/zpay-notify', zpayNotify)
+
+// ZPay 主动查单（回调丢失时的兜底，支付结果页轮询调用）
+app.post('/pay/zpay-verify', async (req, res) => {
+  if (!admin) return configMissing(res)
+  const user = await requireUser(req, res)
+  if (!user) return
+  const { orderNo } = req.body || {}
+  const { data: order } = await admin.from('orders').select('*').eq('order_no', orderNo).eq('user_id', user.id).maybeSingle()
+  if (!order) return res.status(404).json({ error: 'order_not_found' })
+  if (order.status === 'paid') return res.json({ status: 'paid' })
+  if (!zpayEnabled) return res.json({ status: order.status })
+  try {
+    const r = await timeoutFetch(`${ZPAY_GATEWAY}/api.php?act=order&pid=${ZPAY_PID}&key=${ZPAY_KEY}&out_trade_no=${orderNo}`)
+    const d = await r.json()
+    if (d && Number(d.status) === 1) {
+      await admin.rpc('mark_order_paid', { p_order_no: orderNo })
+      await notifyOrderPaid(orderNo)
+      return res.json({ status: 'paid' })
+    }
+    res.json({ status: order.status })
+  } catch (err) {
+    res.status(502).json({ error: 'zpay_error', message: String(err?.message || err) })
+  }
 })
 
 // ============ 用户反馈（登录可选） ============

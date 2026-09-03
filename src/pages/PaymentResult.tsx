@@ -17,12 +17,16 @@ export default function PaymentResult() {
 
   useEffect(() => {
     if (!orderNo) return
-    // 先从 Stripe 主动核实一次（未配置 webhook 时的兜底），之后轮询订单状态
-    api('/pay/stripe-verify', { body: { orderNo }, auth: true }).catch(() => {})
     const poll = () => {
-      api<{ order: OrderInfo }>(`/orders/${orderNo}`, { auth: true })
-        .then((d) => setOrder(d.order))
+      // 每次轮询先向渠道主动核实，再读订单状态
+      api('/pay/stripe-verify', { body: { orderNo }, auth: true }).catch(() => {})
+      api('/pay/zpay-verify', { body: { orderNo }, auth: true })
         .catch(() => {})
+        .finally(() => {
+          api<{ order: OrderInfo }>(`/orders/${orderNo}`, { auth: true })
+            .then((d) => setOrder(d.order))
+            .catch(() => {})
+        })
     }
     poll()
     const t = setInterval(() => {

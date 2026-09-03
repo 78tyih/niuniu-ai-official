@@ -1,9 +1,11 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { useAuth } from '../hooks/useAuth'
+import { supabase, supabaseConfigured } from '../lib/supabase'
 
 export default function Login() {
   const [mode, setMode] = useState<'login' | 'register'>('login')
+  const [loginWay, setLoginWay] = useState<'password' | 'otp'>('password')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
@@ -11,6 +13,9 @@ export default function Login() {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [socialHint, setSocialHint] = useState<string | null>(null)
+  // 邮箱验证码登录
+  const [otpSent, setOtpSent] = useState(false)
+  const [otpCode, setOtpCode] = useState('')
   const { login, register, backendReady } = useAuth()
   const navigate = useNavigate()
 
@@ -21,6 +26,42 @@ export default function Login() {
     try {
       if (mode === 'login') await login(email, password)
       else await register(email, password, name, phone || undefined)
+      navigate('/account')
+    } catch (err) {
+      setError((err as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const sendOtp = async () => {
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+      setError('请输入正确的邮箱')
+      return
+    }
+    setError('')
+    setBusy(true)
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: { shouldCreateUser: true },
+      })
+      if (error) throw new Error(error.message)
+      setOtpSent(true)
+    } catch (err) {
+      setError((err as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const verifyOtp = async (e: FormEvent) => {
+    e.preventDefault()
+    setError('')
+    setBusy(true)
+    try {
+      const { error } = await supabase.auth.verifyOtp({ email, token: otpCode.trim(), type: 'email' })
+      if (error) throw new Error(error.message)
       navigate('/account')
     } catch (err) {
       setError((err as Error).message)
@@ -53,7 +94,7 @@ export default function Login() {
             {(['login', 'register'] as const).map((m) => (
               <button
                 key={m}
-                onClick={() => { setMode(m); setError('') }}
+                onClick={() => { setMode(m); setError(''); setOtpSent(false) }}
                 className={`rounded-lg py-2 text-sm font-medium transition-all ${
                   mode === m ? 'bg-white text-[#14171f] shadow-sm' : 'text-[#6b7280] hover:text-[#14171f]'
                 }`}
@@ -63,6 +104,75 @@ export default function Login() {
             ))}
           </div>
 
+          {/* 邮箱验证码登录 */}
+          {mode === 'login' && loginWay === 'otp' ? (
+            <form onSubmit={verifyOtp} className="space-y-4">
+              <div>
+                <label className="mb-1.5 block text-xs text-[#9aa0ad]">邮箱</label>
+                <div className="flex gap-2.5">
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    disabled={otpSent}
+                    className="flex-1 rounded-lg border border-[#e0ddd6] bg-white px-4 py-2.5 text-sm outline-none focus:border-[#ff6a1a] disabled:bg-[#f5f3ee]"
+                    placeholder="you@example.com"
+                  />
+                  <button
+                    type="button"
+                    onClick={sendOtp}
+                    disabled={busy || !supabaseConfigured}
+                    className="shrink-0 rounded-lg border border-[#ff6a1a] px-4 py-2.5 text-sm font-medium text-[#ff6a1a] transition-all hover:bg-[#ff6a1a]/5 disabled:opacity-50"
+                  >
+                    {otpSent ? '重新发送' : '发送验证码'}
+                  </button>
+                </div>
+              </div>
+              {otpSent && (
+                <div>
+                  <label className="mb-1.5 block text-xs text-[#9aa0ad]">邮箱验证码</label>
+                  <input
+                    required
+                    value={otpCode}
+                    onChange={(e) => setOtpCode(e.target.value)}
+                    maxLength={8}
+                    className="w-full rounded-lg border border-[#e0ddd6] bg-white px-4 py-2.5 font-mono text-lg tracking-[0.4em] outline-none focus:border-[#ff6a1a]"
+                    placeholder="6 位数字"
+                  />
+                  <p className="mt-1.5 text-xs text-[#9aa0ad]">验证码已发送，没收到请检查垃圾邮件。</p>
+                </div>
+              )}
+              {error && (
+                <div className="rounded-lg border border-[#ff6a1a]/30 bg-[#ff6a1a]/8 px-4 py-2.5 text-sm text-[#d4530f]">
+                  {error}
+                </div>
+              )}
+              {otpSent && (
+                <button
+                  type="submit"
+                  disabled={busy || otpCode.length < 6}
+                  className="w-full rounded-xl bg-[#ff6a1a] py-3 text-sm font-semibold text-white transition-all hover:bg-[#f45d0d] disabled:opacity-50"
+                >
+                  {busy ? '验证中…' : '登录'}
+                </button>
+              )}
+              <p className="text-center text-xs text-[#9aa0ad]">
+                没有账号也没关系，验证通过后自动为你创建。
+                <button type="button" onClick={() => { setLoginWay('password'); setError('') }} className="ml-1 text-[#ff6a1a] underline underline-offset-4">
+                  改用密码登录
+                </button>
+              </p>
+            </form>
+          ) : (
+          <>
+          {mode === 'login' && (
+            <p className="-mt-2 mb-4 text-right text-xs">
+              <button type="button" onClick={() => { setLoginWay('otp'); setError('') }} className="text-[#ff6a1a] underline underline-offset-4">
+                用邮箱验证码登录 →
+              </button>
+            </p>
+          )}
           <form onSubmit={submit} className="space-y-4">
             {mode === 'register' && (
               <div>
@@ -136,8 +246,8 @@ export default function Login() {
               {busy ? '处理中…' : mode === 'login' ? '登录' : '创建账户'}
             </button>
           </form>
-
-          {/* 第三方登录 */}
+          </>
+          )}
           <div className="mt-6">
             <div className="flex items-center gap-3 text-xs text-[#b0a89c]">
               <span className="h-px flex-1 bg-[#e8e6e0]" />其他登录方式<span className="h-px flex-1 bg-[#e8e6e0]" />
