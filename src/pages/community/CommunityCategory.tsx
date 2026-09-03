@@ -3,7 +3,7 @@ import Nav from '../../sections/Nav'
 import Footer from '../../sections/Footer'
 import CommunitySidebar from './CommunitySidebar'
 import { useReveal } from '../../hooks/useReveal'
-import { getArticlesByCategory, type ContentCategory } from '../../content'
+import { getArticlesByCategory, CATEGORIES, type ContentCategory } from '../../content'
 
 const CATEGORY_DATA: Record<string, { label: string; desc: string; hero: string }> = {
   updates: { label: '产品更新', desc: '产品动态与版本更新记录', hero: '/screenshots/ai-analysis.jpg' },
@@ -21,6 +21,7 @@ export default function CommunityCategory() {
   const { category } = useParams<{ category: string }>()
   const cat = CATEGORY_DATA[category || '']
   const articles = getArticlesByCategory((category as ContentCategory) || 'faq')
+  const catMeta = CATEGORIES.find((c) => c.id === category)
 
   if (!cat) {
     return (
@@ -42,17 +43,9 @@ export default function CommunityCategory() {
     <div className="min-h-screen bg-[#fafaf8] text-[#111111]">
       <Nav />
 
-      {/* 分类头部 */}
-      <section className="relative overflow-hidden pb-8 pt-[104px] sm:pt-[128px]">
-        <div className="absolute inset-0">
-          <img
-            src={cat.hero}
-            alt=""
-            className="h-full w-full object-cover opacity-[0.06]"
-          />
-          <div className="absolute inset-0 bg-gradient-to-b from-transparent to-[#fafaf8]" />
-        </div>
-        <div className="relative mx-auto max-w-[1280px] px-6 sm:px-10">
+      {/* 分类头部 — 紧凑 */}
+      <section className="pb-6 pt-[104px] sm:pt-[120px]">
+        <div className="mx-auto max-w-[1280px] px-6 sm:px-10">
           <div className="flex items-center gap-2 text-[13px] text-[#9ca3af]">
             <Link to="/community" className="hover:text-[#111111]">社区</Link>
             <span>/</span>
@@ -60,33 +53,73 @@ export default function CommunityCategory() {
           </div>
           <h1 className="mt-3 font-display text-[28px] font-bold sm:text-[34px]">{cat.label}</h1>
           <p className="mt-2 text-[15px] text-[#6b7280]">{cat.desc}</p>
+          {catMeta && (
+            <div className="mt-1 text-[13px] text-[#9ca3af]">
+              {articles.length} 篇文章
+            </div>
+          )}
         </div>
       </section>
 
+      {/* 文章列表 */}
       <section className="pb-[64px] sm:pb-[80px]">
-        <div className="mx-auto grid max-w-[1280px] items-start gap-10 px-6 sm:px-10 lg:grid-cols-[1fr_320px]">
-          <div className="space-y-3">
-            {articles.map((article) => (
+        <div className="mx-auto grid max-w-[1280px] items-start gap-8 px-6 sm:px-10 lg:grid-cols-[1fr_320px]">
+          <div>
+            {/* 分类导航 — 目录切换 */}
+            <nav className="mb-6 flex flex-wrap gap-2">
               <Link
-                key={article.id}
-                to={`/community/${article.category}/${article.id}`}
-                className="card-light btn-lift group block rounded-xl px-5 py-4"
+                to="/community"
+                className="rounded-full border border-[#eceae6] px-3.5 py-1.5 text-[12px] font-medium text-[#6b7280] transition-colors hover:border-[#d1d5db]"
               >
-                <div className="flex items-center gap-3">
-                  {article.tags.slice(0, 3).map((tag) => (
-                    <span key={tag} className="rounded-full bg-[#111111]/5 px-2.5 py-0.5 text-[11px] font-semibold text-[#6b7280]">
-                      {tag}
-                    </span>
-                  ))}
-                  <span className="font-mono text-[12px] text-[#9ca3af]">{article.date}</span>
-                  <span className="text-[11px] text-[#9ca3af]">{article.readingTime}</span>
-                </div>
-                <h2 className="mt-2 text-[16px] font-bold group-hover:text-[#f97316] transition-colors">{article.title}</h2>
-                <p className="mt-1 text-sm leading-relaxed text-[#6b7280]">{article.description}</p>
+                全部
               </Link>
-            ))}
-            {articles.length === 0 && (
-              <p className="py-8 text-center text-sm text-[#9ca3af]">
+              {CATEGORIES.map((c) => (
+                <Link
+                  key={c.id}
+                  to={`/community/${c.id}`}
+                  className={`rounded-full px-3.5 py-1.5 text-[12px] font-medium transition-colors ${
+                    c.id === category
+                      ? 'bg-[#111111] text-white'
+                      : 'border border-[#eceae6] text-[#6b7280] hover:border-[#d1d5db]'
+                  }`}
+                >
+                  {c.label}
+                </Link>
+              ))}
+            </nav>
+
+            {/* 文章 Grid */}
+            {articles.length > 0 ? (
+              <div className="space-y-4">
+                {articles.map((article) => (
+                  <Link
+                    key={article.id}
+                    to={`/community/${article.category}/${article.id}`}
+                    className="group block rounded-xl border border-[#eceae6] bg-white p-5 transition-colors hover:border-[#d1d5db]"
+                  >
+                    <div className="flex items-center gap-3">
+                      {article.tags.slice(0, 3).map((tag) => (
+                        <span key={tag} className="rounded-full bg-[#111111]/5 px-2.5 py-0.5 text-[11px] font-semibold text-[#6b7280]">
+                          {tag}
+                        </span>
+                      ))}
+                      <span className="font-mono text-[12px] text-[#9ca3af]">{article.date}</span>
+                      <span className="text-[11px] text-[#9ca3af]">{article.readingTime}</span>
+                    </div>
+                    <h2 className="mt-2 text-[16px] font-bold group-hover:text-[#f97316] transition-colors">
+                      {article.title}
+                    </h2>
+                    <p className="mt-1 text-[14px] leading-relaxed text-[#6b7280] line-clamp-2">
+                      {article.description}
+                    </p>
+                    <span className="link-arrow mt-2 inline-block text-[12px] font-medium text-[#f97316]">
+                      阅读 <span className="arrow">→</span>
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <p className="py-12 text-center text-sm text-[#9ca3af]">
                 暂无内容，敬请期待。
               </p>
             )}

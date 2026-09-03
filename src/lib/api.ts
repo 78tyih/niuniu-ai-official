@@ -73,3 +73,5 @@ export const CHANNEL_LABEL: Record<string, string> = {
   alipay: '支付宝',
   stripe: 'Stripe',
 }
+
+export const enabledPaymentMethods = ['wechat', 'stripe'] as const
