@@ -13,8 +13,8 @@ const cols = [
   {
     title: '支持',
     items: [
-      { label: '常见问题', to: '/community#faq' },
-      { label: '使用帮助', to: '/community' },
+      { label: '常见问题', to: '/community/faq' },
+      { label: '教程指南', to: '/community/tutorials' },
       { label: '联系客服', to: '/community#contact' },
     ],
   },
@@ -22,7 +22,7 @@ const cols = [
     title: '社区',
     items: [
       { label: '用户社群', to: '/community#groups' },
-      { label: '产品更新', to: '/community#updates' },
+      { label: '产品更新', to: '/community/updates' },
       { label: '用户反馈', to: '/community#feedback' },
     ],
   },
