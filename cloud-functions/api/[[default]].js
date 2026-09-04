@@ -105,6 +105,560 @@ async function requireUser(req, res) {
   return data.user
 }
 
+async function getAccountDashboard(req, res) {
+  const user = await requireUser(req, res)
+  if (!user) return
+  try {
+    // 订阅
+    const { data: sub } = await admin
+      .from('subscriptions')
+      .select('id, plan_code, status, starts_at, expires_at, nq_balance, last_order_no, plans(name, recommended)')
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    // 牛气值
+    const { data: credit } = await admin
+      .from('credit_wallets')
+      .select('balance')
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    // 最近订单
+    const { data: orders } = await admin
+      .from('orders')
+      .select('order_no, plan_code, amount_cents, channel, status, created_at, paid_at, plans(name)')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(5)
+
+    // 推广统计
+    const { data: referrals } = await admin
+      .from('referrals')
+      .select('count(id)', { count: 'exact' })
+      .eq('referrer_user_id', user.id)
+
+    const { data: paidReferrals } = await admin
+      .from('referrals')
+      .select('count(id)', { count: 'exact' })
+      .eq('referrer_user_id', user.id)
+      .not.isNull('first_paid_order_id')
+
+    // 佣金统计
+    const { data: commPending } = await admin
+      .from('commissions')
+      .select('sum(commission_amount)')
+      .eq('beneficiary_user_id', user.id)
+      .eq('status', 'pending')
+    const { data: commAvailable } = await admin
+      .from('commissions')
+      .select('sum(commission_amount)')
+      .eq('beneficiary_user_id', user.id)
+      .eq('status', 'available')
+    const { data: commPaid } = await admin
+      .from('commissions')
+      .select('sum(commission_amount)')
+      .eq('beneficiary_user_id', user.id)
+      .eq('status', 'paid')
+
+    const commissionPending = commPending?.[0]?.sum || 0
+    const commissionAvailable = commAvailable?.[0]?.sum || 0
+    const commissionPaid = commPaid?.[0]?.sum || 0
+
+    // 最近牛气记录
+    const { data: creditHistory } = await admin
+      .from('credit_ledger')
+      .select('created_at, transaction_type, amount, balance_after')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(5)
+
+    res.json({
+      subscription: sub || null,
+      credits: credit ? credit.balance : 0,
+      recentOrders: (orders || []).map(o => ({ ...o, plan_name: o.plans?.name })),
+      referral: {
+        totalRegistrations: referrals?.[0]?.count || 0,
+        paidUsers: paidReferrals?.[0]?.count || 0,
+      },
+      commission: {
+        pending: commissionPending,
+        available: commissionAvailable,
+        paid: commissionPaid,
+      },
+      recentCredits: creditHistory || [],
+    })
+  } catch (err) {
+    res.status(500).json({ error: 'db_error', message: String(err?.message || err) })
+  }
+}
+
+async function getAccountSubscription(req, res) {
+  const user = await requireUser(req, res)
+  if (!user) return
+  try {
+    const { data: sub } = await admin
+      .from('subscriptions')
+      .select('*, plans(name, description)')
+      .eq('user_id', user.id)
+      .maybeSingle()
+    if (!sub) return res.json({ subscription: null })
+    // 关联权益
+    const { data: entitlements } = await admin
+      .from('user_entitlements')
+      .select('entitlement_code, entitlement_definitions(name, description)')
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .order('entitlement_definitions(sort_order)')
+    res.json({ subscription: sub, entitlements })
+  } catch (err) {
+    res.status(500).json({ error: 'db_error', message: String(err?.message || err) })
+  }
+}
+
+async function getAccountOrders(req, res) {
+  const user = await requireUser(req, res)
+  if (!user) return
+  const page = Math.max(1, parseInt(req.query.page || 1))
+  const size = Math.max(1, parseInt(req.query.size || 20))
+  try {
+    const { data: orders } = await admin
+      .from('orders')
+      .select('order_no, plan_code, amount_cents, channel, status, created_at, paid_at, plans(name)')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .range((page - 1) * size, page * size - 1)
+    const { count } = await admin
+      .from('orders')
+      .select('id', { count: 'exact' })
+      .eq('user_id', user.id)
+    res.json({
+      orders: (orders || []).map(o => ({ ...o, plan_name: o.plans?.name })),
+      total: count || 0,
+      page,
+      size,
+    })
+  } catch (err) {
+    res.status(500).json({ error: 'db_error', message: String(err?.message || err) })
+  }
+}
+
+async function getAccountOrder(req, res) {
+  const user = await requireUser(req, res)
+  if (!user) return
+  const { orderNo } = req.params
+  try {
+    const { data: order } = await admin
+      .from('orders')
+      .select('*, plans(name)')
+      .eq('order_no', orderNo)
+      .eq('user_id', user.id)
+      .maybeSingle()
+    if (!order) return res.status(404).json({ error: 'not_found', message: '订单不存在' })
+    res.json({ order: { ...order, plan_name: order.plans?.name } })
+  } catch (err) {
+    res.status(500).json({ error: 'db_error', message: String(err?.message || err) })
+  }
+}
+
+async function getAccountCredits(req, res) {
+  const user = await requireUser(req, res)
+  if (!user) return
+  try {
+    const { data: wallet } = await admin
+      .from('credit_wallets')
+      .select('balance')
+      .eq('user_id', user.id)
+      .maybeSingle()
+    res.json({ balance: wallet?.balance || 0 })
+  } catch (err) {
+    res.status(500).json({ error: 'db_error', message: String(err?.message || err) })
+  }
+}
+
+async function getAccountCreditsHistory(req, res) {
+  const user = await requireUser(req, res)
+  if (!user) return
+  const page = Math.max(1, parseInt(req.query.page || 1))
+  const size = 20
+  try {
+    const { data: history } = await admin
+      .from('credit_ledger')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .range((page - 1) * size, page * size - 1)
+    const { count } = await admin
+      .from('credit_ledger')
+      .select('id', { count: 'exact' })
+      .eq('user_id', user.id)
+    res.json({ history: history || [], total: count || 0, page, size })
+  } catch (err) {
+    res.status(500).json({ error: 'db_error', message: String(err?.message || err) })
+  }
+}
+
+async function getAccountReferral(req, res) {
+  const user = await requireUser(req, res)
+  if (!user) return
+  try {
+    // 我的邀请码
+    const { data: codes } = await admin
+      .from('referral_codes')
+      .select('*')
+      .eq('owner_user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+    const myCode = codes?.[0] || null
+
+    // 统计
+    const { data: referrals } = await admin
+      .from('referrals')
+      .select('count(id)', { count: 'exact' })
+      .eq('referrer_user_id', user.id)
+    const { data: paidReferrals } = await admin
+      .from('referrals')
+      .select('count(id)', { count: 'exact' })
+      .eq('referrer_user_id', user.id)
+      .not.isNull('first_paid_order_id')
+
+    // 佣金统计
+    const { data: commPending } = await admin
+      .from('commissions')
+      .select('sum(commission_amount)')
+      .eq('beneficiary_user_id', user.id)
+      .eq('status', 'pending')
+    const { data: commAvailable } = await admin
+      .from('commissions')
+      .select('sum(commission_amount)')
+      .eq('beneficiary_user_id', user.id)
+      .eq('status', 'available')
+    const { data: commPaid } = await admin
+      .from('commissions')
+      .select('sum(commission_amount)')
+      .eq('beneficiary_user_id', user.id)
+      .eq('status', 'paid')
+
+    // 邀请记录
+    const { data: records } = await admin
+      .from('referrals')
+      .select('id, referred_user_id, attributed_at, first_paid_order_id, status')
+      .eq('referrer_user_id', user.id)
+      .order('attributed_at', { ascending: false })
+      .limit(50)
+    // 脱敏显示，不暴露完整 user_id
+    const sanitizedRecords = (records || []).map(r => ({
+      ...r,
+      referred_user_id: r.referred_user_id ? r.referred_user_id.slice(0, 8) + '...' : null,
+    }))
+
+    res.json({
+      referralCode: myCode,
+      referralUrl: myCode ? `${PUBLIC_BASE_URL}/?ref=${myCode.code}` : null,
+      stats: {
+        totalRegistrations: referrals?.[0]?.count || 0,
+        paidUsers: paidReferrals?.[0]?.count || 0,
+      },
+      commission: {
+        pending: commPending?.[0]?.sum || 0,
+        available: commAvailable?.[0]?.sum || 0,
+        paid: commPaid?.[0]?.sum || 0,
+      },
+      records: sanitizedRecords,
+    })
+  } catch (err) {
+    res.status(500).json({ error: 'db_error', message: String(err?.message || err) })
+  }
+}
+
+async function getAccountCommissions(req, res) {
+  const user = await requireUser(req, res)
+  if (!user) return
+  const page = Math.max(1, parseInt(req.query.page || 1))
+  const size = 20
+  try {
+    const { data: commissions } = await admin
+      .from('commissions')
+      .select('*')
+      .eq('beneficiary_user_id', user.id)
+      .order('created_at', { ascending: false })
+      .range((page - 1) * size, page * size - 1)
+    const { count } = await admin
+      .from('commissions')
+      .select('id', { count: 'exact' })
+      .eq('beneficiary_user_id', user.id)
+    // 计算统计
+    const { data: pending } = await admin
+      .from('commissions')
+      .select('sum(commission_amount)')
+      .eq('beneficiary_user_id', user.id)
+      .eq('status', 'pending')
+    const { data: available } = await admin
+      .from('commissions')
+      .select('sum(commission_amount)')
+      .eq('beneficiary_user_id', user.id)
+      .eq('status', 'available')
+    const { data: paid } = await admin
+      .from('commissions')
+      .select('sum(commission_amount)')
+      .eq('beneficiary_user_id', user.id)
+      .eq('status', 'paid')
+    res.json({
+      commissions: commissions || [],
+      total: count || 0,
+      page,
+      size,
+      summary: {
+        pending: pending?.[0]?.sum || 0,
+        available: available?.[0]?.sum || 0,
+        paid: paid?.[0]?.sum || 0,
+      },
+    })
+  } catch (err) {
+    res.status(500).json({ error: 'db_error', message: String(err?.message || err) })
+  }
+}
+
+async function createPayoutRequest(req, res) {
+  const user = await requireUser(req, res)
+  if (!user) return
+  const { amount, method } = req.body || {}
+  if (!amount || amount <= 0) {
+    return res.status(400).json({ error: 'invalid_amount', message: '提现金额必须大于 0' })
+  }
+  if (!['wechat', 'alipay', 'bank', 'usdt'].includes(method)) {
+    return res.status(400).json({ error: 'invalid_method', message: '不支持该提现方式' })
+  }
+  // 校验可提现
+  try {
+    const { data: available } = await admin
+      .from('commissions')
+      .select('sum(commission_amount)')
+      .eq('beneficiary_user_id', user.id)
+      .eq('status', 'available')
+    const availableAmount = available?.[0]?.sum || 0
+    if (amount > availableAmount) {
+      return res.status(400).json({ error: 'insufficient_funds', message: `可提现佣金不足，当前可提现 ${(availableAmount / 100).toLocaleString('zh-CN')} 元` })
+    }
+    // 锁住佣金
+    await admin
+      .from('commissions')
+      .update({ status: 'reserved' })
+      .eq('beneficiary_user_id', user.id)
+      .eq('status', 'available')
+    // 创建提现请求
+    const { error } = await admin
+      .from('payout_requests')
+      .insert({ user_id: user.id, amount, currency: 'CNY', method })
+    if (error) throw error
+    // 审计
+    await audit(user.id, 'payout_requested', { amount, method })
+    res.json({ ok: true, message: '提现申请已提交，审核通过后会尽快付款' })
+  } catch (err) {
+    res.status(500).json({ error: 'db_error', message: String(err?.message || err) })
+  }
+}
+
+async function getAccountSettings(req, res) {
+  const user = await requireUser(req, res)
+  if (!user) return
+  try {
+    const { data } = await admin
+      .from('profiles')
+      .select('id, email, name, nickname, phone, avatar_url, account_status, country, locale')
+      .eq('id', user.id)
+      .maybeSingle()
+    res.json({ profile: data || { id: user.id, email: user.email } })
+  } catch (err) {
+    res.status(500).json({ error: 'db_error', message: String(err?.message || err) })
+  }
+}
+
+async function updateAccountSettings(req, res) {
+  const user = await requireUser(req, res)
+  if (!user) return
+  const { nickname, phone, avatar_url, country, locale } = req.body || {}
+  try {
+    const updates = {}
+    if (nickname !== undefined) updates.nickname = nickname
+    if (phone !== undefined) updates.phone = phone
+    if (avatar_url !== undefined) updates.avatar_url = avatar_url
+    if (country !== undefined) updates.country = country
+    if (locale !== undefined) updates.locale = locale
+    updates.updated_at = new Date().toISOString()
+    const { error } = await admin
+      .from('profiles')
+      .update(updates)
+      .eq('id', user.id)
+    if (error) throw error
+    await audit(user.id, 'profile_updated', { updates })
+    res.json({ ok: true })
+  } catch (err) {
+    res.status(500).json({ error: 'db_error', message: String(err?.message || err) })
+  }
+}
+
+// 完成支付后的统一 fulfillment
+async function fulfillmentService(orderNo, userId, adminClient = admin) {
+  // 找到订单
+  const { data: order } = await adminClient
+    .from('orders')
+    .select('*')
+    .eq('order_no', orderNo)
+    .maybeSingle()
+  if (!order || order.fulfilled_at) return 'already_fulfilled'
+
+  // 1. 标记已支付
+  await adminClient
+    .from('orders')
+    .update({ status: 'paid', paid_at: new Date().toISOString() })
+    .eq('order_no', orderNo)
+
+  // 2. 获取套餐信息
+  const { data: plan } = await adminClient
+    .from('plans')
+    .select('*')
+    .eq('code', order.plan_code)
+    .maybeSingle()
+
+  // 3. 计算 interval（毫秒）
+  const intervalMs = plan.days > 0
+    ? plan.days * 86400000
+    : plan.months * 30 * 86400000
+
+  // 4. 处理订阅 - 顺延到期时间
+  const { data: sub } = await adminClient
+    .from('subscriptions')
+    .select('*')
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  if (sub && sub.status === 'active' && sub.expires_at > new Date().toISOString()) {
+    await adminClient
+      .from('subscriptions')
+      .update({
+        expires_at: new Date(new Date(sub.expires_at).getTime() + intervalMs).toISOString(),
+        nq_balance: sub.nq_balance + plan.nq_credit,
+        last_order_no: orderNo,
+        source_order_id: orderNo,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('user_id', userId)
+  } else {
+    await adminClient
+      .from('subscriptions')
+      .upsert({
+        user_id: userId,
+        plan_code: plan.code,
+        status: 'active',
+        started_at: new Date().toISOString(),
+        expires_at: new Date(Date.now() + intervalMs).toISOString(),
+        nq_balance: plan.nq_credit,
+        last_order_no: orderNo,
+        source_order_id: orderNo,
+      })
+  }
+
+  // 5. 发放牛气值
+  if (plan.nq_credit > 0) {
+    await adminClient.rpc('recharge_credits', {
+      p_user_id: userId,
+      p_amount: plan.nq_credit,
+      p_source_type: 'order',
+      p_source_id: orderNo,
+      p_description: '套餐赠送牛气值',
+    })
+  }
+
+  // 6. 处理返佣（有邀请关系时）
+  if (order.referral_id) {
+    await createCommissionForReferral(orderNo, order.user_id, order.amount_cents, adminClient)
+  }
+
+  // 7. 标记 fulfilled
+  await adminClient
+    .from('orders')
+    .update({ fulfilled_at: new Date().toISOString() })
+    .eq('order_no', orderNo)
+
+  return 'fulfilled'
+}
+
+// 为邀请人生成佣金
+async function createCommissionForReferral(orderId, referredUserId, orderAmountCents, adminClient = admin) {
+  // 找到邀请关系
+  const { data: referral } = await adminClient
+    .from('referrals')
+    .select('referrer_user_id, referral_code_id, id')
+    .eq('referred_user_id', referredUserId)
+    .maybeSingle()
+  if (!referral) return
+
+  // 找到适用的返佣规则（默认取第一个 active）
+  const { data: rule } = await adminClient
+    .from('commission_rules')
+    .select('*')
+    .eq('status', 'active')
+    .order('rate', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (!rule) return
+
+  // 计算佣金
+  let commissionAmount = 0
+  if (rule.commission_type === 'percentage') {
+    commissionAmount = Math.round(orderAmountCents * (rule.rate / 100))
+  } else {
+    commissionAmount = rule.fixed_amount
+  }
+  if (commissionAmount <= 0) return
+
+  // 可用时间 = 现在 + hold_days
+  const availableAt = new Date()
+  availableAt.setDate(availableAt.getDate() + (rule.hold_days || 0))
+
+  // 插入佣金记录
+  await adminClient
+    .from('commissions')
+    .insert({
+      beneficiary_user_id: referral.referrer_user_id,
+      referred_user_id: referredUserId,
+      order_id: orderId,
+      rule_id: rule.id,
+      base_amount: orderAmountCents,
+      commission_rate: rule.rate,
+      commission_amount: commissionAmount,
+      currency: 'CNY',
+      status: 'pending',
+      available_at: availableAt.toISOString(),
+    })
+
+  // 更新 referral 标记首次付费
+  await adminClient
+    .from('referrals')
+    .update({ first_paid_order_id: orderId })
+    .eq('id', referral.id)
+
+  // 审计
+  await audit(referral.referrer_user_id, 'commission_created', {
+    order_id: orderId,
+    referral_id: referral.id,
+    commission_amount: commissionAmount,
+  })
+}
+
+// 自动生成默认邀请码给新用户
+async function ensureReferralCodeForUser(userId, adminClient = admin) {
+  const { data: existing } = await adminClient
+    .from('referral_codes')
+    .select('id')
+    .eq('owner_user_id', userId)
+    .limit(1)
+  if (existing && existing.length > 0) return existing[0].id
+
+  const { data } = await adminClient.rpc('generate_referral_code', { p_user_id: userId })
+  return data
+}
+
 // 管理员白名单（客服圆圆本人）；也可用环境变量 ADMIN_EMAILS 覆盖，逗号分隔
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '010708lei@gmail.com')
   .split(',').map((s) => s.trim().toLowerCase()).filter(Boolean)
@@ -185,6 +739,76 @@ app.get('/subscription', async (req, res) => {
     orders: (orders || []).map((o) => ({ ...o, plan_name: o.plans?.name, plans: undefined })),
   })
 })
+
+// ============ Referral Attribution（邀请码归因） ============
+// 用户注册时绑定邀请人
+app.post('/referral/bind', async (req, res) => {
+  if (!admin) return configMissing(res)
+  const user = await requireUser(req, res)
+  if (!user) return
+  const { code } = req.body || {}
+  if (!code) return res.status(400).json({ error: 'missing_code', message: '请输入邀请码' })
+  try {
+    // 查找邀请码
+    const { data: refCode } = await admin
+      .from('referral_codes')
+      .select('id, owner_user_id')
+      .eq('code', code.toUpperCase())
+      .eq('status', 'active')
+      .maybeSingle()
+    if (!refCode) return res.status(404).json({ error: 'invalid_code', message: '邀请码无效' })
+    if (refCode.owner_user_id === user.id) {
+      return res.status(400).json({ error: 'self_referral', message: '不能邀请自己' })
+    }
+    // 检查是否已被邀请
+    const { data: existing } = await admin
+      .from('referrals')
+      .select('id')
+      .eq('referred_user_id', user.id)
+      .maybeSingle()
+    if (existing) return res.json({ ok: true, message: '已绑定邀请人' })
+    // 绑定
+    const { error } = await admin
+      .from('referrals')
+      .insert({
+        referrer_user_id: refCode.owner_user_id,
+        referred_user_id: user.id,
+        referral_code_id: refCode.id,
+      })
+    if (error) throw error
+    // 审计
+    await audit(user.id, 'referral_bound', { referrer: refCode.owner_user_id, code: code.toUpperCase() })
+    res.json({ ok: true, message: '绑定成功' })
+  } catch (err) {
+    res.status(500).json({ error: 'db_error', message: String(err?.message || err) })
+  }
+})
+
+// 用户注册后自动生成邀请码
+app.post('/account/ensure-referral-code', async (req, res) => {
+  if (!admin) return configMissing(res)
+  const user = await requireUser(req, res)
+  if (!user) return
+  try {
+    const code = await ensureReferralCodeForUser(user.id)
+    res.json({ ok: true, code })
+  } catch (err) {
+    res.status(500).json({ error: 'db_error', message: String(err?.message || err) })
+  }
+})
+
+// ============ Account API（个人中心） ============
+app.get('/account/dashboard', getAccountDashboard)
+app.get('/account/subscription', getAccountSubscription)
+app.get('/account/orders', getAccountOrders)
+app.get('/account/orders/:orderNo', getAccountOrder)
+app.get('/account/credits', getAccountCredits)
+app.get('/account/credits/history', getAccountCreditsHistory)
+app.get('/account/referral', getAccountReferral)
+app.get('/account/commissions', getAccountCommissions)
+app.post('/account/payouts', createPayoutRequest)
+app.get('/account/settings', getAccountSettings)
+app.patch('/account/settings', updateAccountSettings)
 
 app.post('/orders', async (req, res) => {
   if (!admin) return configMissing(res)

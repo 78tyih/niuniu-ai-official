@@ -9,7 +9,14 @@ import CommunityArticle from './pages/community/CommunityArticle'
 import Login from './pages/Login'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
-import Account from './pages/Account'
+import AccountLayout from './pages/account/AccountLayout'
+import Dashboard from './pages/account/Dashboard'
+import Subscription from './pages/account/Subscription'
+import Orders from './pages/account/Orders'
+import Credits from './pages/account/Credits'
+import Referral from './pages/account/Referral'
+import Commissions from './pages/account/Commissions'
+import Settings from './pages/account/Settings'
 import PaymentResult from './pages/PaymentResult'
 import Admin from './pages/Admin'
 
@@ -27,7 +34,15 @@ export default function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
-      <Route path="/account" element={<Account />} />
+      <Route path="/account" element={<AccountLayout />}>
+        <Route index element={<Dashboard />} />
+        <Route path="subscription" element={<Subscription />} />
+        <Route path="orders" element={<Orders />} />
+        <Route path="credits" element={<Credits />} />
+        <Route path="referral" element={<Referral />} />
+        <Route path="commissions" element={<Commissions />} />
+        <Route path="settings" element={<Settings />} />
+      </Route>
       <Route path="/payment/result" element={<PaymentResult />} />
       <Route path="/admin" element={<Admin />} />
     </Routes>
