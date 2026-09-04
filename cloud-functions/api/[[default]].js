@@ -1204,4 +1204,301 @@ app.post('/admin/feedback/:id/done', async (req, res) => {
   res.json({ ok: true })
 })
 
+// ============ Admin 扩展 API ============
+
+// 用户管理
+app.get('/admin/users', async (req, res) => {
+  if (!admin) return configMissing(res)
+  const user = await requireAdmin(req, res)
+  if (!user) return
+  const page = Math.max(1, parseInt(req.query.page) || 1)
+  const size = 20
+  const q = req.query.q || ''
+  try {
+    // 用 profiles 表查询用户列表（关联 auth.users 需要 admin.auth API）
+    let query = admin.from('profiles')
+      .select('id, name, nickname, phone, email, account_status, created_at, updated_at', { count: 'exact' })
+      .order('created_at', { ascending: false })
+      .range((page - 1) * size, page * size - 1)
+    if (q) {
+      query = query.or(`name.ilike.%${q}%,email.ilike.%${q}%,nickname.ilike.%${q}%`)
+    }
+    const { data, count, error } = await query
+    if (error) return res.status(500).json({ error: 'db_error', message: error.message })
+    res.json({ total: count || 0, page, size, users: data || [] })
+  } catch (err) {
+    res.status(500).json({ error: 'db_error', message: String(err?.message || err) })
+  }
+})
+
+// 获取单个用户详情
+app.get('/admin/users/:userId', async (req, res) => {
+  if (!admin) return configMissing(res)
+  const user = await requireAdmin(req, res)
+  if (!user) return
+  try {
+    const { data: profile } = await admin.from('profiles').select('*').eq('id', req.params.userId).maybeSingle()
+    const { data: sub } = await admin.from('subscriptions').select('*, plans(name)').eq('user_id', req.params.userId).maybeSingle()
+    const { count: orderCount } = await admin.from('orders').select('id', { count: 'exact' }).eq('user_id', req.params.userId)
+    const { data: wallet } = await admin.from('credit_wallets').select('balance').eq('user_id', req.params.userId).maybeSingle()
+    res.json({
+      profile: profile || null,
+      subscription: sub ? { ...sub, plan_name: sub.plans?.name } : null,
+      orderCount: orderCount || 0,
+      creditBalance: wallet?.balance || 0,
+    })
+  } catch (err) {
+    res.status(500).json({ error: 'db_error', message: String(err?.message || err) })
+  }
+})
+
+// 套餐管理
+app.get('/admin/plans', async (req, res) => {
+  if (!admin) return configMissing(res)
+  const user = await requireAdmin(req, res)
+  if (!user) return
+  try {
+    const { data: plans } = await admin.from('plans').select('*').order('price_cents')
+    // 查询每个套餐的权益
+    const { data: planEnts } = await admin.from('plan_entitlements').select('*, entitlement_definitions(name, description, category, sort_order)').order('entitlement_definitions(sort_order)')
+    const entitlementsByPlan = {}
+    for (const pe of planEnts || []) {
+      if (!entitlementsByPlan[pe.plan_code]) entitlementsByPlan[pe.plan_code] = []
+      entitlementsByPlan[pe.plan_code].push(pe)
+    }
+    const { data: allDefs } = await admin.from('entitlement_definitions').select('*').order('sort_order')
+    res.json({
+      plans: (plans || []).map(p => ({ ...p, entitlements: entitlementsByPlan[p.code] || [] })),
+      entitlementDefs: allDefs || [],
+    })
+  } catch (err) {
+    res.status(500).json({ error: 'db_error', message: String(err?.message || err) })
+  }
+})
+
+app.put('/admin/plans/:code', async (req, res) => {
+  if (!admin) return configMissing(res)
+  const user = await requireAdmin(req, res)
+  if (!user) return
+  const allowed = ['name', 'price_cents', 'currency', 'months', 'days', 'nq_credit', 'is_active', 'recommended', 'sort_order', 'commissionable']
+  const updates = {}
+  for (const k of allowed) {
+    if (req.body[k] !== undefined) updates[k] = req.body[k]
+  }
+  if (!Object.keys(updates).length) return res.status(400).json({ error: 'no_fields' })
+  try {
+    const { error } = await admin.from('plans').update(updates).eq('code', req.params.code)
+    if (error) return res.status(500).json({ error: 'db_error', message: error.message })
+    await audit(user.id, 'plan_updated', { code: req.params.code, updates })
+    res.json({ ok: true })
+  } catch (err) {
+    res.status(500).json({ error: 'db_error', message: String(err?.message || err) })
+  }
+})
+
+// 更新套餐权益
+app.post('/admin/plans/:code/entitlements', async (req, res) => {
+  if (!admin) return configMissing(res)
+  const user = await requireAdmin(req, res)
+  if (!user) return
+  const { entitlements } = req.body || []
+  if (!Array.isArray(entitlements)) return res.status(400).json({ error: 'invalid_entitlements' })
+  try {
+    // 删除旧的，插入新的
+    await admin.from('plan_entitlements').delete().eq('plan_code', req.params.code)
+    if (entitlements.length > 0) {
+      const rows = entitlements.map(e => ({ plan_code: req.params.code, entitlement_code: e.code, value: e.value || 'true' }))
+      const { error } = await admin.from('plan_entitlements').insert(rows)
+      if (error) return res.status(500).json({ error: 'db_error', message: error.message })
+    }
+    await audit(user.id, 'plan_entitlements_updated', { code: req.params.code, entitlements })
+    res.json({ ok: true })
+  } catch (err) {
+    res.status(500).json({ error: 'db_error', message: String(err?.message || err) })
+  }
+})
+
+// 订阅管理
+app.get('/admin/subscriptions', async (req, res) => {
+  if (!admin) return configMissing(res)
+  const user = await requireAdmin(req, res)
+  if (!user) return
+  const page = Math.max(1, parseInt(req.query.page) || 1)
+  const size = 20
+  try {
+    const { data, count, error } = await admin
+      .from('subscriptions')
+      .select('*, plans(name, code)', { count: 'exact' })
+      .order('updated_at', { ascending: false })
+      .range((page - 1) * size, page * size - 1)
+    if (error) return res.status(500).json({ error: 'db_error', message: error.message })
+    res.json({
+      total: count || 0, page, size,
+      subscriptions: (data || []).map(s => ({ ...s, plan_name: s.plans?.name, plans: undefined })),
+    })
+  } catch (err) {
+    res.status(500).json({ error: 'db_error', message: String(err?.message || err) })
+  }
+})
+
+// 牛气值管理
+app.get('/admin/credits', async (req, res) => {
+  if (!admin) return configMissing(res)
+  const user = await requireAdmin(req, res)
+  if (!user) return
+  const page = Math.max(1, parseInt(req.query.page) || 1)
+  const size = 20
+  try {
+    const { data: wallets } = await admin.from('credit_wallets').select('*').order('updated_at', { ascending: false }).range((page - 1) * size, page * size - 1)
+    const { count } = await admin.from('credit_wallets').select('id', { count: 'exact' })
+    res.json({ total: count || 0, page, size, wallets: wallets || [] })
+  } catch (err) {
+    res.status(500).json({ error: 'db_error', message: String(err?.message || err) })
+  }
+})
+
+app.get('/admin/credits/ledger', async (req, res) => {
+  if (!admin) return configMissing(res)
+  const user = await requireAdmin(req, res)
+  if (!user) return
+  const page = Math.max(1, parseInt(req.query.page) || 1)
+  const size = 30
+  const userId = req.query.userId || ''
+  try {
+    let query = admin.from('credit_ledger').select('*', { count: 'exact' }).order('created_at', { ascending: false }).range((page - 1) * size, page * size - 1)
+    if (userId) query = query.eq('user_id', userId)
+    const { data, count, error } = await query
+    if (error) return res.status(500).json({ error: 'db_error', message: error.message })
+    res.json({ total: count || 0, page, size, ledger: data || [] })
+  } catch (err) {
+    res.status(500).json({ error: 'db_error', message: String(err?.message || err) })
+  }
+})
+
+// 推广返佣管理
+app.get('/admin/referrals', async (req, res) => {
+  if (!admin) return configMissing(res)
+  const user = await requireAdmin(req, res)
+  if (!user) return
+  const page = Math.max(1, parseInt(req.query.page) || 1)
+  const size = 20
+  try {
+    const { data, count, error } = await admin
+      .from('referrals')
+      .select('*, referral_codes(code)', { count: 'exact' })
+      .order('created_at', { ascending: false })
+      .range((page - 1) * size, page * size - 1)
+    if (error) return res.status(500).json({ error: 'db_error', message: error.message })
+    res.json({ total: count || 0, page, size, referrals: (data || []).map(r => ({ ...r, ref_code: r.referral_codes?.code, referral_codes: undefined })) })
+  } catch (err) {
+    res.status(500).json({ error: 'db_error', message: String(err?.message || err) })
+  }
+})
+
+app.get('/admin/commissions', async (req, res) => {
+  if (!admin) return configMissing(res)
+  const user = await requireAdmin(req, res)
+  if (!user) return
+  const page = Math.max(1, parseInt(req.query.page) || 1)
+  const size = 20
+  const status = req.query.status || ''
+  try {
+    let query = admin.from('commissions').select('*', { count: 'exact' }).order('created_at', { ascending: false }).range((page - 1) * size, page * size - 1)
+    if (status) query = query.eq('status', status)
+    const { data, count, error } = await query
+    if (error) return res.status(500).json({ error: 'db_error', message: error.message })
+    res.json({ total: count || 0, page, size, commissions: data || [] })
+  } catch (err) {
+    res.status(500).json({ error: 'db_error', message: String(err?.message || err) })
+  }
+})
+
+app.put('/admin/commissions/:id/pay', async (req, res) => {
+  if (!admin) return configMissing(res)
+  const user = await requireAdmin(req, res)
+  if (!user) return
+  try {
+    const { data: comm } = await admin.from('commissions').select('id, status').eq('id', req.params.id).maybeSingle()
+    if (!comm) return res.status(404).json({ error: 'not_found' })
+    if (comm.status !== 'available') return res.status(400).json({ error: 'invalid_status', message: '仅可支付的佣金可标记为已支付' })
+    const { error } = await admin.from('commissions').update({ status: 'paid', paid_at: new Date().toISOString() }).eq('id', comm.id)
+    if (error) return res.status(500).json({ error: 'db_error', message: error.message })
+    await audit(user.id, 'commission_paid', { id: comm.id })
+    res.json({ ok: true })
+  } catch (err) {
+    res.status(500).json({ error: 'db_error', message: String(err?.message || err) })
+  }
+})
+
+// 提现管理
+app.get('/admin/payouts', async (req, res) => {
+  if (!admin) return configMissing(res)
+  const user = await requireAdmin(req, res)
+  if (!user) return
+  const page = Math.max(1, parseInt(req.query.page) || 1)
+  const size = 20
+  const status = req.query.status || ''
+  try {
+    let query = admin.from('payout_requests').select('*', { count: 'exact' }).order('requested_at', { ascending: false }).range((page - 1) * size, page * size - 1)
+    if (status) query = query.eq('status', status)
+    const { data, count, error } = await query
+    if (error) return res.status(500).json({ error: 'db_error', message: error.message })
+    res.json({ total: count || 0, page, size, payouts: data || [] })
+  } catch (err) {
+    res.status(500).json({ error: 'db_error', message: String(err?.message || err) })
+  }
+})
+
+app.put('/admin/payouts/:id', async (req, res) => {
+  if (!admin) return configMissing(res)
+  const user = await requireAdmin(req, res)
+  if (!user) return
+  const { action, note } = req.body || {}
+  if (!['approve', 'reject', 'pay'].includes(action)) return res.status(400).json({ error: 'invalid_action' })
+  try {
+    const { data: payout } = await admin.from('payout_requests').select('*').eq('id', req.params.id).maybeSingle()
+    if (!payout) return res.status(404).json({ error: 'not_found' })
+    const updates = { admin_note: note || '' }
+    if (action === 'approve') {
+      if (payout.status !== 'submitted') return res.status(400).json({ error: 'invalid_status' })
+      updates.status = 'approved'
+      updates.approved_at = new Date().toISOString()
+    } else if (action === 'reject') {
+      if (!['submitted', 'reviewing', 'approved'].includes(payout.status)) return res.status(400).json({ error: 'invalid_status' })
+      updates.status = 'rejected'
+      updates.rejected_at = new Date().toISOString()
+    } else if (action === 'pay') {
+      if (payout.status !== 'approved') return res.status(400).json({ error: 'invalid_status', message: '仅审核通过的提现可标记为已付款' })
+      updates.status = 'paid'
+      updates.paid_at = new Date().toISOString()
+    }
+    const { error } = await admin.from('payout_requests').update(updates).eq('id', payout.id)
+    if (error) return res.status(500).json({ error: 'db_error', message: error.message })
+    await audit(user.id, `payout_${action}`, { id: payout.id, amount: payout.amount })
+    res.json({ ok: true })
+  } catch (err) {
+    res.status(500).json({ error: 'db_error', message: String(err?.message || err) })
+  }
+})
+
+// 审计日志
+app.get('/admin/audit-logs', async (req, res) => {
+  if (!admin) return configMissing(res)
+  const user = await requireAdmin(req, res)
+  if (!user) return
+  const page = Math.max(1, parseInt(req.query.page) || 1)
+  const size = 30
+  try {
+    const { data, count, error } = await admin
+      .from('audit_logs')
+      .select('*', { count: 'exact' })
+      .order('created_at', { ascending: false })
+      .range((page - 1) * size, page * size - 1)
+    if (error) return res.status(500).json({ error: 'db_error', message: error.message })
+    res.json({ total: count || 0, page, size, logs: data || [] })
+  } catch (err) {
+    res.status(500).json({ error: 'db_error', message: String(err?.message || err) })
+  }
+})
+
 export default app

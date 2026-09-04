@@ -34,8 +34,9 @@ export default function AccountDashboard() {
   if (err) return <p className="text-sm text-[#d4530f]">{err}</p>
   if (!data) return <p className="text-sm text-[#9ca3af]">加载中…</p>
 
-  const active = data.subscription && data.subscription.status === 'active' && new Date(data.subscription.expires_at) > new Date()
-  const daysLeft = active ? Math.max(0, Math.ceil((new Date(data.subscription.expires_at!).getTime() - Date.now()) / 86400000)) : 0
+  const sub = data.subscription
+  const active = sub && sub.status === 'active' && new Date(sub.expires_at) > new Date()
+  const daysLeft = active ? Math.max(0, Math.ceil((new Date(sub!.expires_at).getTime() - Date.now()) / 86400000)) : 0
 
   return (
     <div>

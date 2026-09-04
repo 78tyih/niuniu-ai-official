@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, NavLink, Outlet, useNavigate, useLocation } from 'react-router'
+import { NavLink, Outlet, useNavigate, useLocation } from 'react-router'
 import Nav from '../../sections/Nav'
 import Footer from '../../sections/Footer'
 import { useAuth } from '../../hooks/useAuth'

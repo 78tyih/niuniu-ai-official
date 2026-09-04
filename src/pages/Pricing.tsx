@@ -21,27 +21,47 @@ interface PaymentState {
 }
 
 const CHANNELS: { key: Channel; label: string; hint: string }[] = [
-  { key: 'wechat', label: '微信支付', hint: '微信扫码完成支付' },
+  { key: 'wechat', label: '微信支付', hint: '扫码完成支付' },
+  { key: 'alipay', label: '支付宝', hint: '扫码完成支付' },
   { key: 'stripe', label: 'Stripe', hint: 'Credit / Debit Card' },
 ]
 
-const AUDIENCE: Record<string, { who: string; line: string }> = {
-  days3: { who: '想先体验再决定的用户', line: '完整功能 3 天体验，渠道活动同价。' },
-  monthly: { who: '轻度使用的个人交易者', line: '一个月完整工作流，按需续停。' },
-  quarterly: { who: '稳定使用的进阶用户', line: '覆盖一个季度，月均成本更低。' },
-  yearly: { who: '长期主力使用者', line: '全年最优月均成本，省心首选。' },
+const PLAN_META: Record<string, {
+  tag: string
+  tagType: 'default' | 'recommended' | 'longterm'
+  audience: string
+  highlights: string[]
+  cta: string
+}> = {
+  days3: {
+    tag: '第一次体验',
+    tagType: 'default',
+    audience: '先确认 MT5 环境和 AI 工作流是否适合自己。',
+    highlights: ['完整 AI 分析体验', 'MT5 连接', '风控与复盘'],
+    cta: '先体验一下',
+  },
+  month: {
+    tag: '灵活使用',
+    tagType: 'default',
+    audience: '适合希望灵活使用一个月的用户。',
+    highlights: ['完整牛牛 AI 功能', '自定义 Prompt', '产品持续更新'],
+    cta: '按月使用',
+  },
+  quarter: {
+    tag: '推荐',
+    tagType: 'recommended',
+    audience: '适合希望真正建立 AI 交易工作流的用户。',
+    highlights: ['完整 AI 三阶段工作流', '历史订单与 AI 复盘', '工作流配置指导'],
+    cta: '开始建立我的交易工作流',
+  },
+  year: {
+    tag: '长期使用',
+    tagType: 'longterm',
+    audience: '适合已经确认长期使用牛牛 AI 的用户。',
+    highlights: ['完整牛牛 AI 功能', '长期 Prompt 与版本更新', '长期使用支持'],
+    cta: '长期使用牛牛 AI',
+  },
 }
-
-const INCLUDED = [
-  'AI 行情分析',
-  '风险审核',
-  '持仓诊断',
-  'AI 日志',
-  '自定义 Prompt',
-  'MT5 连接',
-  '产品更新',
-  '技术支持',
-]
 
 const PRICING_FAQS = [
   { q: '套餐之间有什么区别？', a: '四档套餐的功能完全一致，区别仅在于使用周期和牛气值额度。选择适合你的使用周期即可。' },
@@ -123,101 +143,126 @@ export default function Pricing() {
     }
   }
 
+  const planOrder = ['days3', 'month', 'quarter', 'year']
+  const sorted = [...plans].sort((a, b) => planOrder.indexOf(a.interval) - planOrder.indexOf(b.interval))
+
+  const getPlanTier = (interval: string): 'days3' | 'month' | 'quarter' | 'year' =>
+    interval as 'days3' | 'month' | 'quarter' | 'year'
+
   return (
     <div className="min-h-screen bg-[#fafaf8] text-[#111111]">
       <Nav />
 
-      {/* Pricing Hero — 紧凑，不超过 100px padding */}
-      <section className="pb-6 pt-[88px] sm:pt-[104px]">
+      {/* Pricing Header */}
+      <section className="pb-4 pt-[88px] sm:pt-[104px]">
         <div className="mx-auto max-w-[1280px] px-6 sm:px-10">
           <h1 className="font-display text-[28px] font-bold sm:text-[34px]">选择适合你的方案</h1>
           <p className="mt-2 max-w-xl text-[15px] text-[#6b7280]">
-            按照你的使用周期选择牛牛 AI，功能保持简单透明。
+            所有套餐共享完整核心能力，区别仅在于使用周期。
             {notice && <span className="ml-2 text-[#9ca3af]">{notice}</span>}
           </p>
         </div>
       </section>
 
       {/* Pricing Cards */}
-      <section className="pb-10 sm:pb-14">
+      <section className="pb-6 sm:pb-8">
         <div className="mx-auto max-w-[1280px] px-6 sm:px-10">
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" onMouseLeave={() => setHovered(null)}>
-            {plans.map((p) => {
-              const recommended = p.code === 'yearly'
-              const dim = hovered && hovered !== p.code
-              const a = AUDIENCE[p.code]
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 items-stretch" onMouseLeave={() => setHovered(null)}>
+            {sorted.map((p) => {
+              const tier = getPlanTier(p.interval)
+              const meta = PLAN_META[tier]
+              const isRecommended = meta?.tagType === 'recommended'
+              const showOrange = hovered ? hovered === p.code : isRecommended
+
               return (
                 <div
                   key={p.code}
                   onMouseEnter={() => setHovered(p.code)}
-                  className={`relative flex flex-col rounded-2xl bg-white p-6 ${
-                    recommended ? 'border-2 border-[#f97316]' : 'border border-[#e5e7eb]'
-                  } ${hovered === p.code ? '-translate-y-1 shadow-[0_18px_44px_-24px_rgba(17,17,17,0.3)]' : ''} ${
-                    dim ? 'opacity-[0.72]' : ''
+                  className={`relative flex flex-col rounded-2xl bg-white p-4 transition-all duration-300 ${
+                    showOrange
+                      ? 'border-2 border-[#f97316] shadow-[0_8px_32px_-12px_rgba(249,115,22,0.25)] -translate-y-1'
+                      : 'border border-[#e5e7eb]'
                   }`}
                 >
-                  {recommended && (
-                    <span className="absolute -top-3 left-6 rounded-full bg-[#f97316] px-3 py-1 text-[11px] font-bold text-white">
-                      推荐
+                  {/* Tag */}
+                  {meta && (
+                    <span
+                      className={`inline-block self-start rounded-full px-2.5 py-0.5 text-[10px] font-bold leading-none ${
+                        showOrange
+                          ? 'bg-[#f97316] text-white'
+                          : 'bg-[#111111]/5 text-[#6b7280]'
+                      }`}
+                    >
+                      {meta.tag}
                     </span>
                   )}
-                  <h2 className="text-[15px] font-bold">{p.name}</h2>
-                  <div className="mt-3 flex items-baseline gap-1.5">
-                    <span className="font-display text-[32px] font-bold">{fmtPrice(p.price_cents)}</span>
-                    <span className="text-[13px] text-[#9ca3af]">/ {INTERVAL_LABEL[p.interval]}</span>
+
+                  {/* Price */}
+                  <div className="mt-2.5 flex items-baseline gap-1">
+                    <span className="font-display text-[26px] font-bold sm:text-[30px]">{fmtPrice(p.price_cents)}</span>
+                    <span className="text-[12px] text-[#9ca3af]">/ {INTERVAL_LABEL[p.interval]}</span>
                   </div>
-                  <div className="mt-1 text-[12px] text-[#9ca3af]">
+                  <div className="mt-0.5 text-[11px] text-[#9ca3af]">
                     {p.months > 0 && `折合 ${fmtPrice(Math.round(p.price_cents / p.months))}/月 · `}
                     含 {p.nq_credit.toLocaleString()} 牛气值
                   </div>
-                  <div className="mt-5 flex-1 border-t border-[#f3f4f6] pt-4">
-                    <div className="text-[13px] font-semibold text-[#111111]">适合：{a?.who}</div>
-                    <p className="mt-1.5 text-[13px] leading-relaxed text-[#6b7280]">{a?.line}</p>
-                  </div>
+
+                  {/* Audience — 一句话 */}
+                  {meta && (
+                    <p className="mt-2.5 text-[12px] leading-relaxed text-[#6b7280]">
+                      {meta.audience}
+                    </p>
+                  )}
+
+                  {/* Highlights — 3 项 */}
+                  {meta && (
+                    <ul className="mt-2.5 space-y-1.5">
+                      {meta.highlights.map((h) => (
+                        <li key={h} className="flex items-start gap-1.5 text-[12px] text-[#111111]">
+                          <svg className="mt-0.5 h-3 w-3 shrink-0 text-[#f97316]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.4}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                          </svg>
+                          {h}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  {/* Spacer */}
+                  <div className="flex-1" />
+
+                  {/* CTA */}
                   <button
                     onClick={() => openCheckout(p)}
-                    className={`btn-lift mt-5 w-full rounded-lg py-3 text-sm font-semibold ${
-                      recommended
+                    className={`btn-lift mt-3.5 w-full rounded-lg py-2 text-sm font-semibold transition-colors ${
+                      showOrange
                         ? 'bg-[#f97316] text-white hover:bg-[#ea6a0c]'
                         : 'border border-[#e5e7eb] text-[#111111] hover:border-[#111111]'
                     }`}
                   >
-                    选择{p.name}
+                    {meta?.cta || '选择方案'}
                   </button>
                 </div>
               )
             })}
           </div>
-
-          {/* 所有方案均包含 */}
-          <div className="reveal mt-5 flex flex-wrap items-center gap-x-8 gap-y-2 rounded-xl border border-[#e5e7eb] bg-white px-6 py-4">
-            <span className="text-[13px] font-semibold text-[#111111]">所有方案均包含</span>
-            {INCLUDED.map((f) => (
-              <span key={f} className="flex items-center gap-1.5 text-[13px] text-[#6b7280]">
-                <svg className="h-3.5 w-3.5 text-[#f97316]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.4}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                </svg>
-                {f}
-              </span>
-            ))}
-          </div>
         </div>
       </section>
 
       {/* 牛气值说明 */}
-      <section className="border-t border-[#eceae6] py-10 sm:py-14">
+      <section className="border-t border-[#eceae6] py-8 sm:py-10">
         <div className="mx-auto max-w-[1280px] px-6 sm:px-10">
           <div className="mx-auto max-w-3xl">
-            <h2 className="font-display text-[22px] font-bold sm:text-[26px]">关于牛气值</h2>
-            <p className="mt-3 text-[15px] leading-relaxed text-[#6b7280]">
-              软件授权与 AI 使用消耗属于两个不同部分。部分 AI 分析、审核及诊断功能会根据实际调用消耗牛气值。
+            <h2 className="font-display text-[18px] font-bold sm:text-[20px]">关于牛气值</h2>
+            <p className="mt-2 text-[14px] leading-relaxed text-[#6b7280]">
+              软件授权和 AI 使用消耗是两个独立部分。牛气值主要用于部分 AI 分析、审核、持仓诊断及相关模型调用，实际消耗会根据使用频率和工作流有所不同。
             </p>
-            <p className="mt-2 text-[15px] leading-relaxed text-[#6b7280]">
+            <p className="mt-1 text-[14px] leading-relaxed text-[#6b7280]">
               牛气值按 50 元 = 1000 点折算，随套餐一次性发放到账户。使用规则以正式版本为准。
             </p>
             <Link
               to="/community/faq"
-              className="link-arrow mt-4 inline-block text-[14px] font-medium text-[#f97316]"
+              className="link-arrow mt-3 inline-block text-[13px] font-medium text-[#f97316]"
             >
               了解牛气值 <span className="arrow">→</span>
             </Link>
@@ -226,10 +271,10 @@ export default function Pricing() {
       </section>
 
       {/* Pricing FAQ */}
-      <section className="border-t border-[#eceae6] py-10 sm:py-14">
-        <div className="mx-auto max-w-[1280px] px-6 sm:px-10">
-          <h2 className="font-display text-[22px] font-bold sm:text-[26px]">常见问题</h2>
-          <div className="mt-6 max-w-3xl space-y-2">
+      <section className="border-t border-[#eceae6] py-8 sm:py-10">
+        <div className="mx-auto max-w-[1280px] px-6 sm:px-10 text-center">
+          <h2 className="font-display text-[18px] font-bold sm:text-[20px]">常见问题</h2>
+          <div className="mt-5 mx-auto max-w-3xl text-left space-y-2">
             {PRICING_FAQS.map((f, i) => (
               <div
                 key={f.q}
@@ -239,14 +284,14 @@ export default function Pricing() {
               >
                 <button
                   onClick={() => setOpenFaq(openFaq === i ? null : i)}
-                  className="flex w-full items-center justify-between px-6 py-4 text-left text-[15px] font-semibold"
+                  className="flex w-full items-center justify-between px-5 py-3.5 text-left text-[14px] font-semibold"
                 >
                   {f.q}
                   <span className={`ml-4 shrink-0 text-[#d1d5db] transition-transform duration-200 ${openFaq === i ? 'rotate-45' : ''}`}>
                     ＋
                   </span>
                 </button>
-                {openFaq === i && <p className="px-6 pb-4 text-sm leading-relaxed text-[#6b7280]">{f.a}</p>}
+                {openFaq === i && <p className="px-5 pb-3.5 text-sm leading-relaxed text-[#6b7280]">{f.a}</p>}
               </div>
             ))}
           </div>
@@ -254,22 +299,22 @@ export default function Pricing() {
       </section>
 
       {/* 底部 CTA */}
-      <section className="border-t border-[#eceae6] bg-white py-10 sm:py-14">
+      <section className="border-t border-[#eceae6] bg-white py-8 sm:py-10">
         <div className="mx-auto max-w-[1280px] px-6 sm:px-10 text-center">
-          <h2 className="font-display text-[22px] font-bold sm:text-[26px]">还有问题？</h2>
-          <p className="mt-2 text-[15px] text-[#6b7280]">
+          <h2 className="font-display text-[18px] font-bold sm:text-[20px]">还有问题？</h2>
+          <p className="mt-1.5 text-[14px] text-[#6b7280]">
             如果你不确定自己的 MT5 环境或套餐是否合适，可以先联系我们。
           </p>
-          <div className="mt-6 flex items-center justify-center gap-4">
+          <div className="mt-4 flex items-center justify-center gap-3">
             <Link
               to="/community#contact"
-              className="btn-lift rounded-lg bg-[#f97316] px-6 py-3 text-sm font-semibold text-white hover:bg-[#ea6a0c]"
+              className="btn-lift rounded-lg bg-[#f97316] px-5 py-2 text-sm font-semibold text-white hover:bg-[#ea6a0c]"
             >
               联系客服
             </Link>
             <Link
               to="/demo"
-              className="btn-lift rounded-lg border border-[#e5e7eb] bg-white px-6 py-3 text-sm font-semibold text-[#111111] hover:border-[#111111]"
+              className="btn-lift rounded-lg border border-[#e5e7eb] bg-white px-5 py-2 text-sm font-semibold text-[#111111] hover:border-[#111111]"
             >
               查看产品演示
             </Link>
@@ -305,7 +350,7 @@ export default function Pricing() {
                   <button onClick={() => setPayment(null)} className="text-[#9ca3af] hover:text-[#111111]">✕</button>
                 </div>
 
-                {/* 支付方式切换 — 仅显示已启用的支付方式 */}
+                {/* 支付方式切换 — 微信 / 支付宝 / Stripe */}
                 <div className="mt-5 space-y-3">
                   {CHANNELS.map((c) => (
                     <button
