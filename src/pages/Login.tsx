@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useState, type FormEvent, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { useAuth } from '../hooks/useAuth'
 import { supabase, supabaseConfigured } from '../lib/supabase'
@@ -12,12 +12,19 @@ export default function Login() {
   const [phone, setPhone] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
-  const [socialHint, setSocialHint] = useState<string | null>(null)
   // 邮箱验证码登录
   const [otpSent, setOtpSent] = useState(false)
   const [otpCode, setOtpCode] = useState('')
+  const [resendCountdown, setResendCountdown] = useState(0)
   const { login, register, backendReady } = useAuth()
   const navigate = useNavigate()
+
+  useEffect(() => {
+    if (resendCountdown > 0) {
+      const timer = setTimeout(() => setResendCountdown(resendCountdown - 1), 1000)
+      return () => clearTimeout(timer)
+    }
+  }, [resendCountdown])
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
@@ -39,6 +46,7 @@ export default function Login() {
       setError('请输入正确的邮箱')
       return
     }
+    if (resendCountdown > 0) return
     setError('')
     setBusy(true)
     try {
@@ -48,6 +56,7 @@ export default function Login() {
       })
       if (error) throw new Error(error.message)
       setOtpSent(true)
+      setResendCountdown(60)
     } catch (err) {
       setError((err as Error).message)
     } finally {
@@ -122,10 +131,10 @@ export default function Login() {
                   <button
                     type="button"
                     onClick={sendOtp}
-                    disabled={busy || !supabaseConfigured}
+                    disabled={busy || !supabaseConfigured || resendCountdown > 0}
                     className="shrink-0 rounded-lg border border-[#ff6a1a] px-4 py-2.5 text-sm font-medium text-[#ff6a1a] transition-all hover:bg-[#ff6a1a]/5 disabled:opacity-50"
                   >
-                    {otpSent ? '重新发送' : '发送验证码'}
+                    {resendCountdown > 0 ? `${resendCountdown}s` : otpSent ? '重新发送' : '发送验证码'}
                   </button>
                 </div>
               </div>
@@ -248,27 +257,6 @@ export default function Login() {
           </form>
           </>
           )}
-          <div className="mt-6">
-            <div className="flex items-center gap-3 text-xs text-[#b0a89c]">
-              <span className="h-px flex-1 bg-[#e8e6e0]" />其他登录方式<span className="h-px flex-1 bg-[#e8e6e0]" />
-            </div>
-            <div className="mt-4 grid grid-cols-2 gap-3">
-              <button
-                onClick={() => setSocialHint('wechat')}
-                className="flex items-center justify-center gap-2 rounded-xl border border-[#e0ddd6] bg-white py-2.5 text-sm text-[#3f4756] transition-all hover:border-emerald-400"
-              >
-                <span className="flex h-5 w-5 items-center justify-center rounded bg-emerald-500 text-[10px] font-bold text-white">微</span>
-                微信登录
-              </button>
-              <button
-                onClick={() => setSocialHint('qq')}
-                className="flex items-center justify-center gap-2 rounded-xl border border-[#e0ddd6] bg-white py-2.5 text-sm text-[#3f4756] transition-all hover:border-sky-400"
-              >
-                <span className="flex h-5 w-5 items-center justify-center rounded bg-sky-500 text-[10px] font-bold text-white">QQ</span>
-                QQ 登录
-              </button>
-            </div>
-          </div>
 
           <p className="mt-5 text-center text-xs leading-relaxed text-[#9aa0ad]">
             登录即表示你同意《用户协议》与《隐私政策》
@@ -281,29 +269,6 @@ export default function Login() {
           <Link to="/" className="transition-colors hover:text-[#14171f]">← 返回首页</Link>
         </p>
       </div>
-
-      {/* 第三方登录说明弹窗 */}
-      {socialHint && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 px-4 backdrop-blur-sm" onClick={() => setSocialHint(null)}>
-          <div className="w-full max-w-sm rounded-2xl border border-[#e8e6e0] bg-white p-7 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-bold">
-              {socialHint === 'wechat' ? '微信登录' : 'QQ 登录'}（即将接入）
-            </h3>
-            <p className="mt-3 text-sm leading-relaxed text-[#6b7280]">
-              {socialHint === 'wechat'
-                ? '微信扫码登录需要「微信开放平台」企业开发者资质与网站应用审核，目前正在申请流程中。'
-                : 'QQ 登录需要「QQ 互联」开发者资质与网站应用审核，目前正在申请流程中。'}
-            </p>
-            <p className="mt-2 text-sm text-[#9aa0ad]">当前请使用邮箱注册 / 登录，并绑定手机号。</p>
-            <button
-              onClick={() => setSocialHint(null)}
-              className="mt-6 w-full rounded-xl bg-[#ff6a1a] py-2.5 text-sm font-semibold text-white hover:bg-[#f45d0d]"
-            >
-              知道了
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
