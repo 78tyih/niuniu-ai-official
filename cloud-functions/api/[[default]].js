@@ -1651,12 +1651,15 @@ async function sendSmsVerifyCode(phone, code) {
     const client = new Client(
       new OpenApi.Config({ accessKeyId: ak, accessKeySecret: sk, endpoint: 'dypnsapi.aliyuncs.com' }),
     )
+    // 赠送模板（如 100001 登录/注册）的变量是 code 与 min，缺 min 会报「模板参数不匹配」
+    const min = process.env.ALIYUN_SMS_TEMPLATE_MIN || '5'
     await client.sendSmsVerifyCodeWithOptions(
       new DypnsapiMod.SendSmsVerifyCodeRequest({
         phoneNumber: phone,
         signName,
         templateCode,
-        templateParam: JSON.stringify({ code }),
+        countryCode: process.env.ALIYUN_SMS_COUNTRY_CODE || '86',
+        templateParam: JSON.stringify({ code, min }),
       }),
       new Util.RuntimeOptions({}),
     )
