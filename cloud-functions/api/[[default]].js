@@ -22,13 +22,14 @@ const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL || ''
 
 // 所有出站请求带 10s 超时，避免平台 30s 才兜底返回 504
 // User-Agent 是必需的：部分上游（如 Resend）会对缺失该头的请求直接返回 403
+// 注意：必须用 new Headers() 归一化后再追加 UA，不能用对象展开——
+// supabase-js 传入的是 Headers 实例，展开会丢失 apikey/Authorization，导致全部查询 500
 const DEFAULT_UA = 'niuniu-ai-official/1.0'
-const timeoutFetch = (url, opts = {}) =>
-  fetch(url, {
-    ...opts,
-    headers: { 'User-Agent': DEFAULT_UA, ...(opts.headers || {}) },
-    signal: AbortSignal.timeout(10000),
-  })
+const timeoutFetch = (url, opts = {}) => {
+  const headers = new Headers(opts.headers || {})
+  headers.set('User-Agent', DEFAULT_UA)
+  return fetch(url, { ...opts, headers, signal: AbortSignal.timeout(10000) })
+}
 
 const admin = SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY
   ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
