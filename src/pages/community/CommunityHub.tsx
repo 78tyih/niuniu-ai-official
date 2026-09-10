@@ -3,6 +3,7 @@ import { Link } from 'react-router'
 import Nav from '../../sections/Nav'
 import Footer from '../../sections/Footer'
 import { useReveal } from '../../hooks/useReveal'
+import VideoTutorials from '../../sections/VideoTutorials'
 import { CATEGORIES, ALL_ARTICLES, CATEGORY_LABEL, CATEGORY_HERO, type ContentCategory } from '../../content'
 
 const QUICK_START = [
@@ -236,6 +237,9 @@ export default function CommunityHub() {
           </div>
         </section>
       )}
+
+      {/* Video Tutorials — 功能演示短片 */}
+      <VideoTutorials />
 
       {/* Latest Articles — 4×1 网格 */}
       <section className="border-t border-[#eceae6] py-10 sm:py-14">
