@@ -10,6 +10,7 @@
     "start": "node server/zeabur.mjs",
     "lint": "eslint .",
     "check:auth": "node scripts/check-auth-config.mjs",
+    "set:env": "node scripts/set-env.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

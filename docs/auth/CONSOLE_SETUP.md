@@ -24,23 +24,48 @@
 
 <https://resend.com/api-keys> → **Create API Key** → 权限选 `Sending access` → 复制（形如 `re_xxx`）
 
-### A3. 填入环境变量
+### A3. 填入环境变量（命令）
 
-本地 `official/.env`：
+在 `official/` 目录下执行，把 `re_你的key` 换成实际值：
 
-```
-RESEND_API_KEY=re_你的key
-```
-
-生产（**Zeabur**）：服务 → Variables → 同样加 `RESEND_API_KEY`
-
-### A4. 验证
-
-```
-node scripts/check-auth-config.mjs
+```bash
+npm run set:env RESEND_API_KEY=re_你的key
 ```
 
-看到 `✅ Resend API Key 有效` 和 `✅ niuniuai.app 域名状态 verified` 即通过。
+> 不想让密钥留在命令历史里？省略值即可，会进入隐藏输入：
+> `npm run set:env RESEND_API_KEY`
+
+### A4. 同步到生产（关键，别漏）
+
+本地 `.env` 只给自检脚本用，**线上生效靠 Zeabur 环境变量**。
+
+Zeabur 控制台 → 选中服务 → **Variables** → 新增 `RESEND_API_KEY`（值同上）→ 保存后会自动重新部署。
+
+### A5. 验证
+
+**本地：**
+
+```bash
+npm run check:auth
+```
+
+看到 `✅ Resend API Key 有效` + `✅ niuniuai.app 域名状态 verified` 即通过。
+
+**线上：**
+
+```bash
+curl -s https://niuniuai.app/api/__health
+```
+
+关注这两个字段：
+
+```json
+"RESEND": true,
+"EMAIL_CHANNEL_READY": true
+```
+
+> `EMAIL_CHANNEL_READY` 为 `true` 表示线上登录邮件通道真的通了。
+> 这里只返回布尔值，不会暴露密钥内容。
 
 ---
 
@@ -96,16 +121,15 @@ AuthPrincipalType : SubUser
 NoPermissionType  : ImplicitDeny
 ```
 
-### B5. 填入环境变量
+### B5. 填入环境变量（命令）
 
-本地 `official/.env` + Zeabur 服务变量：
+在 `official/` 目录下执行（AccessKey 两项已配好，只需补签名和模板）：
 
+```bash
+npm run set:env ALIYUN_SMS_SIGN_NAME=第B2步复制的签名名 ALIYUN_SMS_TEMPLATE_CODE=100001
 ```
-ALIYUN_ACCESS_KEY_ID=已填写
-ALIYUN_ACCESS_KEY_SECRET=已填写
-ALIYUN_SMS_SIGN_NAME=第 B2 步的签名名
-ALIYUN_SMS_TEMPLATE_CODE=100001
-```
+
+然后同样到 **Zeabur → Variables** 补上这两个变量（AccessKey 若线上还没有也要一并加上）。
 
 ### B6. Supabase 开启手机号登录
 
@@ -119,12 +143,49 @@ Supabase Dashboard → **Authentication → Providers → Phone** → 开启
 
 ### B7. 验证
 
-```
-node scripts/check-auth-config.mjs
+**本地探测阿里云权限：**
+
+```bash
+npm run check:auth
 ```
 
 看到 `✅ 权限已通过` 即授权生效。
 脚本用的是非法号码做探测，**不会真的发短信、不产生费用**。
+
+**线上：**
+
+```bash
+curl -s https://niuniuai.app/api/__health
+```
+
+```json
+"ALIYUN_AK": true,
+"ALIYUN_SIGN": true,
+"ALIYUN_TEMPLATE": true,
+"SMS_CHANNEL_READY": true
+```
+
+四项全绿即短信通道就绪。
+
+---
+
+## 一页速查（照着复制）
+
+```bash
+cd /Users/a1234/Documents/kimi/workspace/niuniu-ai/official
+
+# A. 邮件（Resend）
+npm run set:env RESEND_API_KEY=re_你的key
+
+# B. 短信（阿里云）
+npm run set:env ALIYUN_SMS_SIGN_NAME=赠送签名名 ALIYUN_SMS_TEMPLATE_CODE=100001
+
+# 本地自检
+npm run check:auth
+
+# 线上自检
+curl -s https://niuniuai.app/api/__health
+```
 
 ---
 

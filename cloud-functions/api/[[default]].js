@@ -719,6 +719,18 @@ app.get('/__health', async (_req, res) => {
       ZPAY: Boolean(ZPAY_PID && ZPAY_KEY),
       SMTP: Boolean(mailer),
       PUBLIC_BASE_URL: Boolean(PUBLIC_BASE_URL),
+      // 登录相关通道是否就绪（只报布尔值，不暴露任何密钥内容）
+      RESEND: Boolean(RESEND_API_KEY),
+      EMAIL_CHANNEL_READY: Boolean(RESEND_API_KEY || mailer),
+      ALIYUN_AK: Boolean(process.env.ALIYUN_ACCESS_KEY_ID && process.env.ALIYUN_ACCESS_KEY_SECRET),
+      ALIYUN_SIGN: Boolean(process.env.ALIYUN_SMS_SIGN_NAME),
+      ALIYUN_TEMPLATE: Boolean(process.env.ALIYUN_SMS_TEMPLATE_CODE),
+      SMS_CHANNEL_READY: Boolean(
+        process.env.ALIYUN_ACCESS_KEY_ID &&
+          process.env.ALIYUN_ACCESS_KEY_SECRET &&
+          process.env.ALIYUN_SMS_SIGN_NAME &&
+          process.env.ALIYUN_SMS_TEMPLATE_CODE,
+      ),
     },
   }
   if (SUPABASE_URL) {
