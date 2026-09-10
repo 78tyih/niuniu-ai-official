@@ -39,7 +39,13 @@ npm run set:env RESEND_API_KEY=re_你的key
 
 本地 `.env` 只给自检脚本用，**线上生效靠 Zeabur 环境变量**。
 
-Zeabur 控制台 → 选中服务 → **Variables** → 新增 `RESEND_API_KEY`（值同上）→ 保存后会自动重新部署。
+Zeabur 控制台 → 选中服务 → **Variables** → 新增 `RESEND_API_KEY`（值同上）→ 保存。
+
+> ⚠️ **Zeabur 目前不会自动部署**（实测：推 `main` 后线上仍是旧版，前端包里还是旧的
+> `signInWithOtp`，没有新接口）。所以改完 Variables 后，**必须手动触发一次重新部署**：
+> 服务页面 → **Deployments** → 右上角 **Redeploy**（或 **Deploy latest commit**）。
+>
+> 只配 Variables 不重新部署 = 线上永远不生效。这是本次最容易白忙一场的地方。
 
 ### A5. 验证
 
@@ -66,6 +72,18 @@ curl -s https://niuniuai.app/api/__health
 
 > `EMAIL_CHANNEL_READY` 为 `true` 表示线上登录邮件通道真的通了。
 > 这里只返回布尔值，不会暴露密钥内容。
+
+**再确认前端也更新了**（这一步能识破「后端更新了但前端还是旧版」）：
+
+```bash
+curl -s https://niuniuai.app/login | grep -o 'assets/index-[A-Za-z0-9_-]*\.js'
+curl -s https://niuniuai.app/assets/index-<上面查到的文件名>.js | grep -c "auth/email-link"
+```
+
+结果 **≥1** 说明前端已更新；**0** 说明部署没生效，回去重新 Deploy。
+
+> 若健康检查里**完全没有** `EMAIL_CHANNEL_READY` 这个字段（而不是 `false`），
+> 说明线上跑的还是这次的代码之前的版本 —— 同样是没部署成功。
 
 ---
 
