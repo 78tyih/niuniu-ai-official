@@ -131,28 +131,46 @@ if (!ak || !sk) {
 if (ak && sk && !sign) todos.push('到控制台复制「赠送签名名」填入 ALIYUN_SMS_SIGN_NAME')
 if (ak && sk && !tpl) todos.push('到控制台复制「赠送模板 code」填入 ALIYUN_SMS_TEMPLATE_CODE（登录/注册=100001）')
 
-if (ak && sk && sign && tpl) {
+// 权限探测与「签名/模板是否填了」是两件独立的事：
+// 只要 AK/SK 在就探测，未填签名模板时用占位值，避免掩盖授权状态
+if (ak && sk) {
   try {
     const DypnsapiMod = await import('@alicloud/dypnsapi20170525')
     const OpenApi = await import('@alicloud/openapi-client')
     const Util = await import('@alicloud/tea-util')
-    const Client = DypnsapiMod.default || DypnsapiMod
+    // CJS 包在 ESM 下真正的类在 default.default
+    const Client =
+      typeof DypnsapiMod?.default?.default === 'function' ? DypnsapiMod.default.default : DypnsapiMod.default
     const client = new Client(
       new OpenApi.Config({ accessKeyId: ak, accessKeySecret: sk, endpoint: 'dypnsapi.aliyuncs.com' }),
     )
     try {
-      await client.sendSmsVerifyCodeWithOptions(
+      const resp = await client.sendSmsVerifyCodeWithOptions(
         new DypnsapiMod.SendSmsVerifyCodeRequest({
           // 明显非法的号码：用于探测权限，不会真正下发
           phoneNumber: '10000000000',
-          signName: sign,
-          templateCode: tpl,
+          signName: sign || '权限探测占位',
+          templateCode: tpl || '100001',
           countryCode: '86',
           templateParam: JSON.stringify({ code: '000000', min: '5' }),
         }),
         new Util.RuntimeOptions({}),
       )
-      say(WARN, '权限探测：调用意外成功，请确认是否真的发出了短信')
+      // 阿里云业务失败时仍返回 HTTP 200，权限是否通过要看 code 而非异常
+      const body = resp?.body || {}
+      const c = body.code || ''
+      if (!c || c === 'OK') {
+        say(WARN, '权限已通过，但调用返回成功 —— 请确认是否真的发出了短信')
+      } else if (/Forbidden|NoPermission|Unauthorized/i.test(c)) {
+        say(NO, 'RAM 子账号未授权', c)
+        todos.push('RAM 控制台给子账号授予 AliyunDypnsFullAccess')
+      } else {
+        say(
+          OK,
+          '权限已通过',
+          `${c}${body.message ? `：${body.message}` : ''}（业务层错误，非权限问题，说明授权已生效）`,
+        )
+      }
     } catch (e) {
       const code = e?.data?.Code || e?.code || ''
       if (code === 'Forbidden.NoPermission') {
@@ -169,7 +187,7 @@ if (ak && sk && sign && tpl) {
     say(NO, 'SDK 加载失败', String(e.message || e))
   }
 } else {
-  say(WARN, '凭证或签名模板不全，跳过权限探测')
+  say(WARN, '缺少 AccessKey，跳过权限探测')
 }
 
 // ---------- 输出 ----------

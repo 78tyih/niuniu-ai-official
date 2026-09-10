@@ -1654,6 +1654,10 @@ app.post('/auth/email-link', async (req, res) => {
 const smsCooldown = new Map()
 const smsDaily = new Map()
 
+// 取 CJS 包在 ESM 下真正的导出（阿里云 SDK 的类位于 default.default）
+const cjsDefault = (mod) =>
+  typeof mod?.default?.default === 'function' ? mod.default.default : mod?.default || mod
+
 async function sendSmsVerifyCode(phone, code) {
   const ak = process.env.ALIYUN_ACCESS_KEY_ID
   const sk = process.env.ALIYUN_ACCESS_KEY_SECRET
@@ -1666,13 +1670,15 @@ async function sendSmsVerifyCode(phone, code) {
     const DypnsapiMod = await import('@alicloud/dypnsapi20170525')
     const OpenApi = await import('@alicloud/openapi-client')
     const Util = await import('@alicloud/tea-util')
-    const Client = DypnsapiMod.default || DypnsapiMod
+    // 阿里云 SDK 是 CJS 包，在 ESM 下真正的类挂在 `default.default`，
+    // 直接 `new (mod.default)` 会抛 "Client is not a constructor"
+    const Client = cjsDefault(DypnsapiMod)
     const client = new Client(
       new OpenApi.Config({ accessKeyId: ak, accessKeySecret: sk, endpoint: 'dypnsapi.aliyuncs.com' }),
     )
     // 赠送模板（如 100001 登录/注册）的变量是 code 与 min，缺 min 会报「模板参数不匹配」
     const min = process.env.ALIYUN_SMS_TEMPLATE_MIN || '5'
-    await client.sendSmsVerifyCodeWithOptions(
+    const resp = await client.sendSmsVerifyCodeWithOptions(
       new DypnsapiMod.SendSmsVerifyCodeRequest({
         phoneNumber: phone,
         signName,
@@ -1682,6 +1688,12 @@ async function sendSmsVerifyCode(phone, code) {
       }),
       new Util.RuntimeOptions({}),
     )
+    // 重要：阿里云业务失败时仍返回 HTTP 200，必须检查返回体的 success，
+    // 否则会把 biz.FREQUENCY / 签名模板无效 等失败误报成「发送成功」
+    const body = resp?.body || {}
+    if (body.success === false || (body.code && body.code !== 'OK')) {
+      return { ok: false, reason: `${body.code || 'unknown'}${body.message ? `：${body.message}` : ''}` }
+    }
     return { ok: true }
   } catch (err) {
     return { ok: false, reason: err?.data?.Code || err?.message || String(err) }
