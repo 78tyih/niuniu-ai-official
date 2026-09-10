@@ -2,6 +2,7 @@ import { useState, type FormEvent, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { useAuth } from '../hooks/useAuth'
 import { supabase, supabaseConfigured } from '../lib/supabase'
+import { api } from '../lib/api'
 
 export default function Login() {
   const [mode, setMode] = useState<'login' | 'register'>('login')
@@ -12,9 +13,10 @@ export default function Login() {
   const [phone, setPhone] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
-  // 邮箱验证码登录
+  // 邮箱验证码登录（不走 Supabase 内置邮件服务，改由后端自建投递）
   const [otpSent, setOtpSent] = useState(false)
   const [otpCode, setOtpCode] = useState('')
+  const [hasCode, setHasCode] = useState(true)
   const [resendCountdown, setResendCountdown] = useState(0)
   const { login, register, backendReady } = useAuth()
   const navigate = useNavigate()
@@ -41,7 +43,7 @@ export default function Login() {
     }
   }
 
-  const sendOtp = async () => {
+  const sendLoginLink = async () => {
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
       setError('请输入正确的邮箱')
       return
@@ -50,11 +52,12 @@ export default function Login() {
     setError('')
     setBusy(true)
     try {
-      const { error } = await supabase.auth.signInWithOtp({
-        email,
-        options: { shouldCreateUser: true },
+      const r = await api<{ ok: boolean; hasCode?: boolean }>('/auth/email-link', {
+        method: 'POST',
+        body: { email, purpose: 'magiclink' },
       })
-      if (error) throw new Error(error.message)
+      setHasCode(r.hasCode !== false)
+      setOtpCode('')
       setOtpSent(true)
       setResendCountdown(60)
     } catch (err) {
@@ -69,7 +72,12 @@ export default function Login() {
     setError('')
     setBusy(true)
     try {
-      const { error } = await supabase.auth.verifyOtp({ email, token: otpCode.trim(), type: 'email' })
+      // 验证码由 Supabase 生成并校验，我们只负责投递
+      const { error } = await supabase.auth.verifyOtp({
+        email,
+        token: otpCode.trim(),
+        type: 'email',
+      })
       if (error) throw new Error(error.message)
       navigate('/account')
     } catch (err) {
@@ -115,7 +123,7 @@ export default function Login() {
 
           {/* 邮箱验证码登录 */}
           {mode === 'login' && loginWay === 'otp' ? (
-            <form onSubmit={verifyOtp} className="space-y-4">
+            <form onSubmit={hasCode ? verifyOtp : (e) => e.preventDefault()} className="space-y-4">
               <div>
                 <label className="mb-1.5 block text-xs text-[#9aa0ad]">邮箱</label>
                 <div className="flex gap-2.5">
@@ -130,7 +138,7 @@ export default function Login() {
                   />
                   <button
                     type="button"
-                    onClick={sendOtp}
+                    onClick={sendLoginLink}
                     disabled={busy || !supabaseConfigured || resendCountdown > 0}
                     className="shrink-0 rounded-lg border border-[#ff6a1a] px-4 py-2.5 text-sm font-medium text-[#ff6a1a] transition-all hover:bg-[#ff6a1a]/5 disabled:opacity-50"
                   >
@@ -138,7 +146,7 @@ export default function Login() {
                   </button>
                 </div>
               </div>
-              {otpSent && (
+              {otpSent && hasCode && (
                 <div>
                   <label className="mb-1.5 block text-xs text-[#9aa0ad]">邮箱验证码</label>
                   <input
@@ -147,9 +155,18 @@ export default function Login() {
                     onChange={(e) => setOtpCode(e.target.value)}
                     maxLength={8}
                     className="w-full rounded-lg border border-[#e0ddd6] bg-white px-4 py-2.5 font-mono text-lg tracking-[0.4em] outline-none focus:border-[#ff6a1a]"
-                    placeholder="6 位数字"
+                    placeholder="8 位数字"
                   />
-                  <p className="mt-1.5 text-xs text-[#9aa0ad]">验证码已发送，没收到请检查垃圾邮件。</p>
+                  <p className="mt-1.5 text-xs text-[#9aa0ad]">
+                    验证码已发送至 {email}，邮件中另有一键登录链接，1 小时内有效。
+                  </p>
+                </div>
+              )}
+              {otpSent && !hasCode && (
+                <div className="rounded-lg border border-[#e0ddd6] bg-white px-4 py-3 text-xs leading-relaxed text-[#6b7280]">
+                  登录链接已发送至 <b className="text-[#14171f]">{email}</b>。
+                  <br />
+                  请到邮箱点击链接完成登录，链接 1 小时内有效且只能使用一次。
                 </div>
               )}
               {error && (
@@ -157,7 +174,7 @@ export default function Login() {
                   {error}
                 </div>
               )}
-              {otpSent && (
+              {otpSent && hasCode && (
                 <button
                   type="submit"
                   disabled={busy || otpCode.length < 6}

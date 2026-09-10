@@ -57,10 +57,34 @@ const mailer = process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMT
       connectionTimeout: 8000,
     })
   : null
-const MAIL_FROM = process.env.SMTP_FROM || process.env.SMTP_USER || ''
+// 发件人：Resend 场景下用 no-reply 子域，SMTP 场景沿用原有配置
+const MAIL_FROM = process.env.SMTP_FROM || process.env.MAIL_FROM || process.env.SMTP_USER || 'noreply@niuniuai.app'
+const MAIL_FROM_NAME = process.env.MAIL_FROM_NAME || '牛牛 AI'
+const RESEND_API_KEY = process.env.RESEND_API_KEY || ''
 const ADMIN_NOTIFY_EMAIL = process.env.ADMIN_NOTIFY_EMAIL || '010708lei@gmail.com'
 
 async function sendMail(to, subject, text, html) {
+  // 优先走 Resend HTTP API：无需 SMTP 端口，国内可达性更好
+  if (RESEND_API_KEY) {
+    try {
+      const r = await timeoutFetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from: `${MAIL_FROM_NAME} <${MAIL_FROM}>`,
+          to: [to],
+          subject,
+          text,
+          html,
+        }),
+      })
+      if (r.ok) return true
+      console.error('[mail] resend failed:', r.status, (await r.text()).slice(0, 200))
+    } catch (err) {
+      console.error('[mail] resend error:', err?.message || err)
+    }
+    return false
+  }
   if (!mailer) return false
   try {
     await mailer.sendMail({ from: MAIL_FROM, to, subject, text, html })
@@ -1499,6 +1523,182 @@ app.get('/admin/audit-logs', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: 'db_error', message: String(err?.message || err) })
   }
+})
+
+// ============ 登录 / 重置密码：自建邮件投递 ============
+// 背景：Supabase 内置邮件服务限流 2 封/小时且无 SLA，导致验证码登录、找回密码、注册验证全部不可用。
+// 方案：用 admin.generateLink 拿到官方 token，再走我们自己的邮件通道投递，完全绕开 Supabase 邮件服务。
+// 无需自建验证码存储：token 本身就是凭证，由 Supabase 生成并校验。
+const SITE_URL = (process.env.PUBLIC_BASE_URL || 'https://niuniuai.app').replace(/\/+$/, '')
+const AUTH_LINK_ECHO = process.env.AUTH_LINK_ECHO === '1' // 邮件未配置时把链接回传，仅应急/本地调试用
+const authLinkCooldown = new Map() // key -> 上次发送时间戳
+const authLinkDaily = new Map() // key -> { day, count }
+
+function dayKey() {
+  return new Date().toISOString().slice(0, 10)
+}
+
+// 同时给出「验证码」与「一键链接」：验证码留在当前页输入，链接免跳转，覆盖两种使用习惯
+const authLinkHtml = ({ title, desc, action, link, code }) => `
+  <div style="font-family:-apple-system,'PingFang SC',sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;color:#14171f">
+    <h2 style="margin:0 0 8px">${title}</h2>
+    <p style="color:#6b7280;font-size:14px;line-height:1.7">${desc}</p>
+    ${
+      code
+        ? `<div style="margin:24px 0;text-align:center">
+      <div style="color:#9aa0ad;font-size:12px;margin-bottom:8px">你的验证码</div>
+      <div style="display:inline-block;background:#faf9f6;border:1px solid #e0ddd6;border-radius:12px;padding:14px 28px;font-size:30px;font-weight:700;letter-spacing:.35em;font-family:ui-monospace,Menlo,monospace">${code}</div>
+      <div style="color:#9aa0ad;font-size:12px;margin-top:10px">在登录页输入即可完成验证</div>
+    </div>`
+        : ''
+    }
+    <p style="margin:28px 0;text-align:center">
+      <a href="${link}" style="display:inline-block;background:#ff6a1a;color:#fff;text-decoration:none;padding:13px 30px;border-radius:12px;font-size:15px;font-weight:600">${action}</a>
+    </p>
+    <p style="color:#9aa0ad;font-size:12px;line-height:1.7">
+      如果按钮无法点击，请复制以下链接到浏览器打开：<br/>
+      <span style="word-break:break-all;color:#6b7280">${link}</span>
+    </p>
+    <p style="color:#9aa0ad;font-size:12px;margin-top:24px">
+      验证码与链接 1 小时内有效且只能使用一次。若非本人操作请忽略本邮件。
+    </p>
+  </div>
+`
+
+app.post('/auth/email-link', async (req, res) => {
+  const email = String(req.body?.email || '').trim().toLowerCase()
+  const purpose = req.body?.purpose === 'recovery' ? 'recovery' : 'magiclink'
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    return res.status(400).json({ error: '请输入正确的邮箱' })
+  }
+  if (!admin) return configMissing(res)
+
+  // 频率限制：单邮箱 60 秒一次，单日 10 次
+  const key = `el:${email}`
+  const now = Date.now()
+  const last = authLinkCooldown.get(key) || 0
+  if (now - last < 60_000) {
+    return res.status(429).json({ error: `请 ${Math.ceil((60_000 - (now - last)) / 1000)} 秒后再试` })
+  }
+  const day = dayKey()
+  const rec = authLinkDaily.get(key)
+  const count = rec && rec.day === day ? rec.count : 0
+  if (count >= 10) return res.status(429).json({ error: '今日发送次数已达上限，请明天再试' })
+
+  try {
+    let { data, error } = await admin.auth.admin.generateLink({ type: purpose, email })
+    // 登录场景保持原有体验：邮箱未注册时自动建档（找回密码场景不自动建档）
+    if (error && purpose === 'magiclink') {
+      const created = await admin.auth.admin.createUser({ email, email_confirm: true })
+      if (!created.error) ({ data, error } = await admin.auth.admin.generateLink({ type: purpose, email }))
+    }
+    if (error) throw error
+    const tokenHash = data?.properties?.hashed_token
+    if (!tokenHash) return res.status(500).json({ error: '生成登录链接失败' })
+
+    // token 一旦签发就计入配额：否则邮件发送失败时可绕过限流反复签发
+    authLinkCooldown.set(key, now)
+    authLinkDaily.set(key, { day, count: count + 1 })
+
+    // 落到我们自己的页面，避免直接暴露 supabase 域名
+    const link = `${SITE_URL}/auth/callback?token_hash=${encodeURIComponent(tokenHash)}&type=${purpose}`
+    const isRecovery = purpose === 'recovery'
+    // email_otp 由 Supabase 生成并校验，我们只负责投递，因此无需自建验证码存储
+    const emailOtp = data?.properties?.email_otp ? String(data.properties.email_otp) : ''
+    const subject = isRecovery ? '重置你的牛牛AI密码' : '牛牛AI 登录验证码'
+    const html = authLinkHtml({
+      title: isRecovery ? '重置密码' : '登录牛牛AI',
+      desc: isRecovery
+        ? '我们收到了重置密码的请求。输入验证码或点击下方按钮即可设置新密码。'
+        : '输入下方验证码即可登录你的牛牛 AI 账号，也可以直接点击按钮一键登录。',
+      action: isRecovery ? '设置新密码' : '一键登录',
+      link,
+      code: emailOtp,
+    })
+
+    const ok = await sendMail(email, subject, `${isRecovery ? '重置密码' : '登录'}：验证码 ${emailOtp || ''} ${link}`, html)
+    if (!ok) {
+      if (AUTH_LINK_ECHO) return res.status(503).json({ error: '邮件通道未配置', link, code: emailOtp })
+      return res.status(503).json({ error: '邮件服务暂不可用，请稍后再试或联系客服' })
+    }
+    // hasCode 告知前端是否展示验证码输入框（并非所有 Supabase 版本都返回 email_otp）
+    res.json({ ok: true, hasCode: Boolean(emailOtp) })
+  } catch (err) {
+    console.error('[auth/email-link] failed:', err?.message || err)
+    res.status(500).json({ error: '发送失败，请稍后重试' })
+  }
+})
+
+// ============ 短信验证码（阿里云号码认证服务） ============
+// 注意：用的是「号码认证服务」而非「短信服务」，后者需企业认证。
+// SDK 动态引入，缺失或凭证不全时不影响站点其余功能。
+const smsCooldown = new Map()
+const smsDaily = new Map()
+
+async function sendSmsVerifyCode(phone, code) {
+  const ak = process.env.ALIYUN_ACCESS_KEY_ID
+  const sk = process.env.ALIYUN_ACCESS_KEY_SECRET
+  const signName = process.env.ALIYUN_SMS_SIGN_NAME
+  const templateCode = process.env.ALIYUN_SMS_TEMPLATE_CODE
+  if (!ak || !sk || !signName || !templateCode) {
+    return { ok: false, reason: '短信凭证或签名/模板未配置' }
+  }
+  try {
+    const DypnsapiMod = await import('@alicloud/dypnsapi20170525')
+    const OpenApi = await import('@alicloud/openapi-client')
+    const Util = await import('@alicloud/tea-util')
+    const Client = DypnsapiMod.default || DypnsapiMod
+    const client = new Client(
+      new OpenApi.Config({ accessKeyId: ak, accessKeySecret: sk, endpoint: 'dypnsapi.aliyuncs.com' }),
+    )
+    await client.sendSmsVerifyCodeWithOptions(
+      new DypnsapiMod.SendSmsVerifyCodeRequest({
+        phoneNumber: phone,
+        signName,
+        templateCode,
+        templateParam: JSON.stringify({ code }),
+      }),
+      new Util.RuntimeOptions({}),
+    )
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, reason: err?.data?.Code || err?.message || String(err) }
+  }
+}
+
+// Supabase「Send SMS Hook」接收端：Supabase 生成 OTP，我们负责投递
+app.post('/auth/sms-hook', async (req, res) => {
+  const phone = String(req.body?.user?.phone || req.body?.phone || '').trim()
+  const otp = String(req.body?.sms?.otp || '').trim()
+  if (!phone || !otp) return res.status(400).json({ error: '缺少手机号或验证码' })
+  const r = await sendSmsVerifyCode(phone, otp)
+  if (!r.ok) {
+    console.error('[auth/sms-hook] send failed:', r.reason)
+    return res.status(500).json({ error: r.reason })
+  }
+  res.json({ ok: true })
+})
+
+// 直发短信（自带频率限制，用于非 Supabase Hook 场景）
+app.post('/auth/sms/send', async (req, res) => {
+  const phone = String(req.body?.phone || '').trim()
+  if (!/^1[3-9]\d{9}$/.test(phone)) return res.status(400).json({ error: '请输入正确的手机号' })
+  const key = `sms:${phone}`
+  const now = Date.now()
+  const last = smsCooldown.get(key) || 0
+  if (now - last < 60_000) {
+    return res.status(429).json({ error: `请 ${Math.ceil((60_000 - (now - last)) / 1000)} 秒后再试` })
+  }
+  const day = dayKey()
+  const rec = smsDaily.get(key)
+  const count = rec && rec.day === day ? rec.count : 0
+  if (count >= 10) return res.status(429).json({ error: '今日发送次数已达上限' })
+  const code = String(Math.floor(100000 + Math.random() * 900000))
+  const r = await sendSmsVerifyCode(phone, code)
+  if (!r.ok) return res.status(500).json({ error: r.reason })
+  smsCooldown.set(key, now)
+  smsDaily.set(key, { day, count: count + 1 })
+  res.json({ ok: true })
 })
 
 export default app

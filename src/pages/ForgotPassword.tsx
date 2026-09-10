@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router'
-import { supabase, supabaseConfigured } from '../lib/supabase'
+import { supabaseConfigured } from '../lib/supabase'
+import { api } from '../lib/api'
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState('')
@@ -17,10 +18,7 @@ export default function ForgotPassword() {
     setBusy(true)
     setError('')
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
-      })
-      if (error) throw new Error(error.message)
+      await api('/auth/email-link', { method: 'POST', body: { email, purpose: 'recovery' } })
       setSent(true)
     } catch (err) {
       setError((err as Error).message)

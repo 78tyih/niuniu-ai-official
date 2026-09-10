@@ -11,6 +11,7 @@ import LegacyCommunityRedirect from './pages/learn/LegacyCommunityRedirect'
 import Login from './pages/Login'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
+import AuthCallback from './pages/AuthCallback'
 import AccountLayout from './pages/account/AccountLayout'
 import Dashboard from './pages/account/Dashboard'
 import Subscription from './pages/account/Subscription'
@@ -56,6 +57,8 @@ export default function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
+      {/* 邮件登录 / 重置密码落地页 */}
+      <Route path="/auth/callback" element={<AuthCallback />} />
       <Route path="/account" element={<AccountLayout />}>
         <Route index element={<Dashboard />} />
         <Route path="subscription" element={<Subscription />} />

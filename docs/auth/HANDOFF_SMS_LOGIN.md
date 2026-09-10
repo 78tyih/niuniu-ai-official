@@ -3,7 +3,52 @@
 交接日期：2026-09-10
 交接方：Trae
 接办方：WorkBuddy
-状态：**BLOCKED** —— 等待阿里云控制台侧完成授权与配置
+状态：**邮箱侧已修复（待配邮件通道）· 短信侧仍 BLOCKED（待阿里云授权）**
+
+---
+
+## 〇、2026-09-10 后续 · WorkBuddy 接手进展
+
+### 邮箱侧：已找到绕行方案并完成编码与实测
+
+**关键突破**：实测确认 `admin.generateLink` 会同时返回 `hashed_token` 和 `email_otp`。
+验证码由 **Supabase 生成并校验**，我们只负责**投递**，因此**无需自建验证码存储、无需新建数据库表**。
+
+已实现并实测通过：
+
+| 环节 | 结果 |
+|---|---|
+| `POST /api/auth/email-link` | ✅ 返回验证码 + 登录链接 |
+| 验证码兑换会话（`verifyOtp`） | ✅ 实测拿到真实 access_token |
+| 一键链接兑换会话（`token_hash`） | ✅ 实测通过 |
+| 60 秒冷却 / 单日 10 次限流 | ✅ 生效（已修复「发送失败可绕过限流」的缺陷） |
+| 未注册邮箱自动建档 | ✅ 保持原有「无账号也能登录」体验 |
+
+改动文件：
+
+- `cloud-functions/api/[[default]].js`：`sendMail` 支持 **Resend HTTP API**（优先）+ SMTP 回退；新增 `/auth/email-link`、`/auth/sms-hook`、`/auth/sms/send`
+- `src/pages/AuthCallback.tsx`（新增）：邮件一键登录落地页
+- `src/pages/Login.tsx`、`src/pages/ForgotPassword.tsx`：改走自建通道，不再直连 Supabase 内置邮件
+- `src/App.tsx`：新增 `/auth/callback` 路由
+
+**剩余唯一阻塞：没有邮件发送凭证。** 拿到 Resend API Key 填入环境变量即可生效，无需再改代码。
+
+### 只需两件事即可全部上线
+
+| # | 事项 | 填入位置 |
+|---|---|---|
+| 1 | **Resend API Key** | `RESEND_API_KEY`（本地 `official/.env` + Zeabur 服务变量）。域名 `niuniuai.app` 需先在 Resend 完成验证（Cloudflare 加一条 TXT 记录） |
+| 2 | **阿里云**：RAM 子账号授权 `AliyunDypnsFullAccess` + 赠送签名名 + 赠送模板 code | `ALIYUN_SMS_SIGN_NAME`、`ALIYUN_SMS_TEMPLATE_CODE` |
+
+第 1 项到位后，邮箱验证码登录 / 找回密码 / 注册验证**同时恢复**；
+第 2 项到位后，手机号短信登录可直接启用（后端已就绪）。
+
+### 短信侧：仍未解除阻塞（已复测）
+
+复测 `SendSmsVerifyCode` 仍返回 `Forbidden.NoPermission`
+（`AuthAction: dypns:SendSmsVerifyCode`、`NoPermissionType: ImplicitDeny`），
+且 `ALIYUN_SMS_SIGN_NAME` / `ALIYUN_SMS_TEMPLATE_CODE` 仍为空。
+后端代码已就绪（`/auth/sms-hook`），一旦控制台授权 + 补齐两个值即可启用。
 
 ---
 
