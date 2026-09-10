@@ -26,7 +26,7 @@ create table if not exists public.plans (
 );
 
 insert into public.plans (code, name, price_cents, interval, months, days, nq_credit, features) values
-  ('days3',    '3天体验卡', 19900,  'days3',   0,  3, 300,
+  ('days3',    '3天体验卡', 1990,   'days3',   0,  3, 300,
    '["完整功能 3 天体验","三层 AI 工作流（分析/审核/诊断）","适合渠道体验与活动","含 300 牛气值（规则待确认）"]'),
   ('monthly',  '月卡',      98000,  'month',   1,  0, 3000,
    '["三层 AI 工作流（分析/审核/诊断）","风控与过滤设置","AI 日志与复盘","含 3,000 牛气值（规则待确认）"]'),

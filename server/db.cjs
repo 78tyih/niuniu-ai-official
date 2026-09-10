@@ -65,7 +65,7 @@ if (planCount === 0) {
   const seed = db.transaction((plans) => plans.forEach((p) => insert.run(p)))
   seed([
     {
-      code: 'days3', name: '3天体验卡', price_cents: 19900, interval: 'days3', months: 0, days: 3, nq_credit: 300,
+      code: 'days3', name: '3天体验卡', price_cents: 1990, interval: 'days3', months: 0, days: 3, nq_credit: 300,
       features: JSON.stringify(['完整功能 3 天体验', '三层 AI 工作流（分析/审核/诊断）', '适合渠道体验与活动', '含 300 牛气值（规则待确认）']),
     },
     {
