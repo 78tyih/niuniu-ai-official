@@ -346,7 +346,7 @@ export default function Home() {
                 观看产品演示
               </Link>
               <Link
-                to="/community#contact"
+                to="/learn#contact"
                 className="btn-lift rounded-lg border border-[#e5e7eb] bg-white px-7 py-3.5 text-[15px] font-semibold text-[#111111] hover:border-[#111111]"
               >
                 咨询客服
@@ -436,7 +436,7 @@ export default function Home() {
               观看完整演示
             </Link>
             <Link
-              to="/community#contact"
+              to="/learn#contact"
               className="btn-lift rounded-lg border border-white/50 px-8 py-4 text-[15px] font-semibold text-white hover:bg-white/10"
             >
               咨询客服

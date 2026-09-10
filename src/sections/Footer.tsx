@@ -13,17 +13,17 @@ const cols = [
   {
     title: '支持',
     items: [
-      { label: '常见问题', to: '/community/faq' },
-      { label: '教程指南', to: '/community/tutorials' },
-      { label: '联系客服', to: '/community#contact' },
+      { label: '常见问题', to: '/learn/troubleshooting' },
+      { label: '教程指南', to: '/learn' },
+      { label: '联系客服', to: '/learn#contact' },
     ],
   },
   {
-    title: '社区',
+    title: '学习',
     items: [
-      { label: '用户社群', to: '/community#groups' },
-      { label: '产品更新', to: '/community/updates' },
-      { label: '用户反馈', to: '/community#feedback' },
+      { label: '用户社群', to: '/learn#groups' },
+      { label: '产品更新', to: '/learn' },
+      { label: '用户反馈', to: '/learn#help' },
     ],
   },
   {

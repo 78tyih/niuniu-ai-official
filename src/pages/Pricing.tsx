@@ -261,7 +261,7 @@ export default function Pricing() {
               牛气值按 50 元 = 1000 点折算，随套餐一次性发放到账户。使用规则以正式版本为准。
             </p>
             <Link
-              to="/community/faq"
+              to="/learn/troubleshooting"
               className="link-arrow mt-3 inline-block text-[13px] font-medium text-[#f97316]"
             >
               了解牛气值 <span className="arrow">→</span>
@@ -307,7 +307,7 @@ export default function Pricing() {
           </p>
           <div className="mt-4 flex items-center justify-center gap-3">
             <Link
-              to="/community#contact"
+              to="/learn#contact"
               className="btn-lift rounded-lg bg-[#f97316] px-5 py-2 text-sm font-semibold text-white hover:bg-[#ea6a0c]"
             >
               联系客服

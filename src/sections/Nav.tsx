@@ -6,7 +6,7 @@ const links = [
   { zh: '产品', to: '/product' },
   { zh: '演示', to: '/demo' },
   { zh: '定价', to: '/pricing' },
-  { zh: '社区', to: '/community' },
+  { zh: '学习', to: '/learn' },
 ]
 
 export default function Nav() {
