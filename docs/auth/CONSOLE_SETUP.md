@@ -187,6 +187,24 @@ curl -s https://niuniuai.app/api/__health
 
 ---
 
+## 生产环境操作（已可用命令，无需去控制台点）
+
+Zeabur API Token 已配置在本机 `~/.config/nna/zeabur_token`（不在仓库内）。
+以下命令可直接操作生产环境：
+
+```bash
+npm run deploy:vars        # 看生产已配了哪些变量（只列名，不显示值）
+npm run deploy:status      # 看最近部署状态与对应 commit
+npm run deploy:redeploy    # 只触发重新部署
+
+# 写生产变量并自动重新部署（推荐用法）
+npm run deploy:env ALIYUN_SMS_SIGN_NAME=赠送签名名 ALIYUN_SMS_TEMPLATE_CODE=100001
+```
+
+`deploy:env` 会自动判断是新增还是覆盖，写完立即触发部署。
+
+---
+
 ## 一页速查（照着复制）
 
 ```bash

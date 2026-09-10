@@ -11,6 +11,10 @@
     "lint": "eslint .",
     "check:auth": "node scripts/check-auth-config.mjs",
     "set:env": "node scripts/set-env.mjs",
+    "deploy:env": "node scripts/zeabur.mjs env",
+    "deploy:redeploy": "node scripts/zeabur.mjs redeploy",
+    "deploy:status": "node scripts/zeabur.mjs status",
+    "deploy:vars": "node scripts/zeabur.mjs vars",
     "preview": "vite preview"
   },
   "dependencies": {
