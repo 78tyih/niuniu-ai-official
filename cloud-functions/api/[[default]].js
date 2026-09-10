@@ -21,7 +21,14 @@ const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || ''
 const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL || ''
 
 // 所有出站请求带 10s 超时，避免平台 30s 才兜底返回 504
-const timeoutFetch = (url, opts = {}) => fetch(url, { ...opts, signal: AbortSignal.timeout(10000) })
+// User-Agent 是必需的：部分上游（如 Resend）会对缺失该头的请求直接返回 403
+const DEFAULT_UA = 'niuniu-ai-official/1.0'
+const timeoutFetch = (url, opts = {}) =>
+  fetch(url, {
+    ...opts,
+    headers: { 'User-Agent': DEFAULT_UA, ...(opts.headers || {}) },
+    signal: AbortSignal.timeout(10000),
+  })
 
 const admin = SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY
   ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
