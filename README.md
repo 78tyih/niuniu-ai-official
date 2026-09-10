@@ -37,10 +37,20 @@ PUBLIC_BASE_URL
 
 ## 部署
 
-- **Vercel**（当前线上）：已配置好，push 后 `vercel deploy --prod` 即可
-- **EdgeOne Pages（国内推荐）**：控制台关联本仓库即可，构建配置已在 `edgeone.json`；
-  云函数在 `cloud-functions/api/[[default]].js`（Express 导出，无需监听端口）；
-  部署后在项目设置里添加上表中的环境变量
+**当前线上：Zeabur（niuniuai.app）**，已开启 `main` 分支自动部署——push 后自动构建上线。
+
+| 项 | 值 |
+|---|---|
+| 构建 | 仓库根目录 `Dockerfile`（多阶段：`node:22` 构建 → `node:22-slim` 运行） |
+| 运行 | `node server/zeabur.mjs`，监听 `8080`，同时托管 `dist/` 与 `/api` |
+| 前端构建变量 | `.env.production`（仅 `VITE_SUPABASE_URL`、`VITE_SUPABASE_ANON_KEY`，均为会打进前端 JS 的公开值） |
+| 运行时变量 | 在 Zeabur 服务变量中配置：`SUPABASE_URL`、`SUPABASE_ANON_KEY`、`SUPABASE_SERVICE_ROLE_KEY`、`STRIPE_SECRET_KEY`、`PUBLIC_BASE_URL` |
+
+> 服务端密钥只放 Zeabur 环境变量。仓库是公开的，切勿提交 `.env`。
+
+**EdgeOne Pages（国内备选）**：控制台关联本仓库即可，构建配置已在 `edgeone.json`；
+云函数在 `cloud-functions/api/[[default]].js`（Express 导出，无需监听端口）；
+部署后在项目设置里添加上述运行时环境变量。
 
 ## 合规
 
