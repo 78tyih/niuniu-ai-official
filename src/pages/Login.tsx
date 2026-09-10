@@ -6,7 +6,7 @@ import { api } from '../lib/api'
 
 export default function Login() {
   const [mode, setMode] = useState<'login' | 'register'>('login')
-  const [loginWay, setLoginWay] = useState<'password' | 'otp'>('password')
+  const [loginWay, setLoginWay] = useState<'password' | 'otp' | 'phone'>('password')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
@@ -18,6 +18,9 @@ export default function Login() {
   const [otpCode, setOtpCode] = useState('')
   const [hasCode, setHasCode] = useState(true)
   const [resendCountdown, setResendCountdown] = useState(0)
+  // 手机号短信登录（Supabase 生成 OTP，经 Send SMS Hook 由阿里云投递）
+  const [phoneSent, setPhoneSent] = useState(false)
+  const [phoneCode, setPhoneCode] = useState('')
   const { login, register, backendReady } = useAuth()
   const navigate = useNavigate()
 
@@ -87,6 +90,47 @@ export default function Login() {
     }
   }
 
+  // 手机号短信登录：Supabase 生成 OTP → Send SMS Hook → 阿里云投递
+  const sendPhoneOtp = async () => {
+    if (!/^1[3-9]\d{9}$/.test(phone.trim())) {
+      setError('请输入正确的 11 位手机号')
+      return
+    }
+    if (resendCountdown > 0) return
+    setError('')
+    setBusy(true)
+    try {
+      const { error } = await supabase.auth.signInWithOtp({ phone: phone.trim() })
+      if (error) throw new Error(error.message)
+      setPhoneCode('')
+      setPhoneSent(true)
+      setResendCountdown(60)
+    } catch (err) {
+      setError((err as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const verifyPhoneOtp = async (e: FormEvent) => {
+    e.preventDefault()
+    setError('')
+    setBusy(true)
+    try {
+      const { error } = await supabase.auth.verifyOtp({
+        phone: phone.trim(),
+        token: phoneCode.trim(),
+        type: 'sms',
+      })
+      if (error) throw new Error(error.message)
+      navigate('/account')
+    } catch (err) {
+      setError((err as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#faf9f6] px-5 py-16">
       <div className="w-full max-w-md">
@@ -121,8 +165,69 @@ export default function Login() {
             ))}
           </div>
 
-          {/* 邮箱验证码登录 */}
-          {mode === 'login' && loginWay === 'otp' ? (
+          {/* 手机号短信登录 */}
+          {mode === 'login' && loginWay === 'phone' ? (
+            <form onSubmit={verifyPhoneOtp} className="space-y-4">
+              <div>
+                <label className="mb-1.5 block text-xs text-[#9aa0ad]">手机号</label>
+                <div className="flex gap-2.5">
+                  <input
+                    type="tel"
+                    required
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    disabled={phoneSent}
+                    maxLength={11}
+                    className="flex-1 rounded-lg border border-[#e0ddd6] bg-white px-4 py-2.5 text-sm outline-none focus:border-[#ff6a1a] disabled:bg-[#f5f3ee]"
+                    placeholder="11 位手机号"
+                  />
+                  <button
+                    type="button"
+                    onClick={sendPhoneOtp}
+                    disabled={busy || !supabaseConfigured || resendCountdown > 0}
+                    className="shrink-0 rounded-lg border border-[#ff6a1a] px-4 py-2.5 text-sm font-medium text-[#ff6a1a] transition-all hover:bg-[#ff6a1a]/5 disabled:opacity-50"
+                  >
+                    {resendCountdown > 0 ? `${resendCountdown}s` : phoneSent ? '重新发送' : '发送验证码'}
+                  </button>
+                </div>
+              </div>
+              {phoneSent && (
+                <div>
+                  <label className="mb-1.5 block text-xs text-[#9aa0ad]">短信验证码</label>
+                  <input
+                    required
+                    value={phoneCode}
+                    onChange={(e) => setPhoneCode(e.target.value)}
+                    maxLength={8}
+                    className="w-full rounded-lg border border-[#e0ddd6] bg-white px-4 py-2.5 font-mono text-lg tracking-[0.4em] outline-none focus:border-[#ff6a1a]"
+                    placeholder="6 位数字"
+                  />
+                  <p className="mt-1.5 text-xs text-[#9aa0ad]">验证码已发送，请留意短信，没收到请稍后再试。</p>
+                </div>
+              )}
+              {error && (
+                <div className="rounded-lg border border-[#ff6a1a]/30 bg-[#ff6a1a]/8 px-4 py-2.5 text-sm text-[#d4530f]">
+                  {error}
+                </div>
+              )}
+              {phoneSent && (
+                <button
+                  type="submit"
+                  disabled={busy || phoneCode.length < 4}
+                  className="w-full rounded-xl bg-[#ff6a1a] py-3 text-sm font-semibold text-white transition-all hover:bg-[#f45d0d] disabled:opacity-50"
+                >
+                  {busy ? '验证中…' : '登录'}
+                </button>
+              )}
+              <p className="text-center text-xs text-[#9aa0ad]">
+                没有账号也没关系，验证通过后自动为你创建。
+                <button type="button" onClick={() => { setLoginWay('password'); setError('') }} className="ml-1 text-[#ff6a1a] underline underline-offset-4">
+                  改用密码登录
+                </button>
+              </p>
+            </form>
+          ) : /* 邮箱验证码登录 */
+          mode === 'login' && loginWay === 'otp' ? (
             <form onSubmit={hasCode ? verifyOtp : (e) => e.preventDefault()} className="space-y-4">
               <div>
                 <label className="mb-1.5 block text-xs text-[#9aa0ad]">邮箱</label>
@@ -193,7 +298,10 @@ export default function Login() {
           ) : (
           <>
           {mode === 'login' && (
-            <p className="-mt-2 mb-4 text-right text-xs">
+            <p className="-mt-2 mb-4 flex items-center justify-end gap-4 text-xs">
+              <button type="button" onClick={() => { setLoginWay('phone'); setError('') }} className="text-[#ff6a1a] underline underline-offset-4">
+                用手机号登录 →
+              </button>
               <button type="button" onClick={() => { setLoginWay('otp'); setError('') }} className="text-[#ff6a1a] underline underline-offset-4">
                 用邮箱验证码登录 →
               </button>
