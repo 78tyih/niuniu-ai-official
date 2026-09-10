@@ -1,0 +1,13 @@
+node_modules
+dist
+.git
+.gitignore
+.vercel
+*.log
+.env
+.env.local
+data.sqlite
+server/data.sqlite
+server/data 2.sqlite
+docs
+*.md
