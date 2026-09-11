@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import Nav from '../../sections/Nav'
 import Footer from '../../sections/Footer'
@@ -9,6 +9,7 @@ import LearningStep from '../../components/learn/LearningStep'
 import LearningFAQ from '../../components/learn/LearningFAQ'
 import LearningNext from '../../components/learn/LearningNext'
 import LearningProgress from '../../components/learn/LearningProgress'
+import { getCompletedLearningSlugs, markLearningComplete } from '../../lib/learningProgress'
 import {
   TRACK_NAME,
   getArticle,
@@ -19,6 +20,7 @@ import {
 export default function LearnArticle() {
   const { slug = '' } = useParams()
   const article = getArticle(slug)
+  const [completed, setCompleted] = useState(() => getCompletedLearningSlugs())
   useReveal()
 
   useEffect(() => {
@@ -55,6 +57,11 @@ export default function LearnArticle() {
   const trackName = TRACK_NAME[article.track]
   const related = getRelatedArticles(article.slug)
   const { prev, next } = getPrevNext(article.slug)
+  const isComplete = completed.includes(article.slug)
+  const markComplete = () => {
+    markLearningComplete(article.slug)
+    setCompleted(getCompletedLearningSlugs())
+  }
 
   return (
     <div className="min-h-screen bg-[#fafaf8] text-[#111111]">
@@ -149,8 +156,15 @@ export default function LearnArticle() {
             </section>
           )}
 
+          <div className="mt-12 flex flex-col gap-3 rounded-xl border border-[#eceae6] bg-white p-5 sm:flex-row sm:items-center sm:justify-between">
+            <div><div className="text-sm font-bold">本节学习状态</div><p className="mt-1 text-sm text-[#6b7280]">完成后会同步到“我的账户”的学习进度。</p></div>
+            <button onClick={markComplete} disabled={isComplete} className="rounded-lg bg-[#111111] px-4 py-2.5 text-sm font-semibold text-white transition-transform active:scale-[0.98] disabled:bg-[#d6dae0]">
+              {isComplete ? '已完成本节' : '标记为已完成'}
+            </button>
+          </div>
+
           {/* Prev / Next */}
-          <div className="mt-14">
+          <div className="mt-10">
             <LearningProgress prev={prev} next={next} />
           </div>
 

@@ -8,7 +8,7 @@ import { useAuth } from '../../hooks/useAuth'
 const SIDEBAR_ITEMS = [
   { to: '/account', label: '总览', description: '账户概况', icon: LayoutDashboard, end: true },
   { to: '/account/subscription', label: '订阅', description: '套餐与权益', icon: Sparkles },
-  { to: '/account/orders', label: '购买与牛气值', description: '订单、授权与余额', icon: CreditCard },
+  { to: '/account/orders', label: '订阅与权益', description: '订单、授权与套餐权益', icon: CreditCard },
   { to: '/account/referral', label: '推广与返佣', description: '邀请、结算与提现', icon: Users },
 ]
 

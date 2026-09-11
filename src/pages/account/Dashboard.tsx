@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
-import { ArrowRight, CalendarDays, CircleDollarSign, CreditCard, RefreshCw, Sparkles, TrendingUp, Users, Wallet } from 'lucide-react'
+import { ArrowRight, BookOpen, CalendarDays, CircleDollarSign, CreditCard, MessageCircle, RefreshCw, Sparkles, TrendingUp, Users, Wallet } from 'lucide-react'
 import { Link } from 'react-router'
 import { useAuth } from '../../hooks/useAuth'
 import { api, fmtPrice } from '../../lib/api'
+import { LEARNING_ARTICLES, getQuickStartArticles } from '../../content/learn'
+import { getLearningProgress } from '../../lib/learningProgress'
 
 interface DashboardData {
   subscription: {
@@ -80,7 +82,7 @@ export default function AccountDashboard() {
           <button onClick={loadDashboard} className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#14171f] px-4 py-2.5 text-sm font-semibold text-white transition-transform active:scale-[0.98]"><RefreshCw size={15} /> 重新加载</button>
         </header>
         <div className="grid gap-px overflow-hidden rounded-xl border border-[#e5e8ed] bg-[#e5e8ed] sm:grid-cols-2 xl:grid-cols-4">
-          {['当前订阅', '牛气值余额', '推广返佣', '待处理事项'].map((label) => (
+          {['当前订阅', '套餐权益', '推广返佣', '待处理事项'].map((label) => (
             <div key={label} className="bg-white p-5"><div className="text-xs font-medium text-[#7d8797]">{label}</div><div className="mt-3 text-2xl font-bold text-[#a0a8b6]">—</div><div className="mt-1 text-[11px] text-[#a0a8b6]">等待账户数据同步</div></div>
           ))}
         </div>
@@ -104,9 +106,11 @@ export default function AccountDashboard() {
   const paidRate = data.referral.totalRegistrations > 0
     ? Math.round((data.referral.paidUsers / data.referral.totalRegistrations) * 100)
     : 0
+  const learning = getLearningProgress(LEARNING_ARTICLES.length)
+  const nextLesson = getQuickStartArticles().find((article) => !learning.completed.includes(article.slug)) || getQuickStartArticles()[0]
 
   const metrics = [
-    { label: '牛气值余额', value: data.credits.toLocaleString('zh-CN'), note: '用于 AI 分析服务', icon: Wallet, accent: true },
+    { label: '套餐权益', value: data.credits.toLocaleString('zh-CN'), note: '随订阅套餐发放', icon: Wallet, accent: true },
     { label: '推广用户', value: `${data.referral.totalRegistrations} 人`, note: `${data.referral.paidUsers} 人付费 · 转化 ${paidRate}%`, icon: Users },
     { label: '可提现佣金', value: fmtPrice(data.commission.available), note: `${fmtPrice(data.commission.pending)} 待结算`, icon: CircleDollarSign },
     { label: '累计已提现', value: fmtPrice(data.commission.paid), note: '返佣结算记录', icon: TrendingUp },
@@ -125,11 +129,11 @@ export default function AccountDashboard() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link to="/account/orders" className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#e1e5ea] bg-white px-4 py-2.5 text-sm font-semibold text-[#4f5968] transition-colors hover:border-[#14171f] hover:text-[#14171f] active:scale-[0.98]">
-            购买记录
+          <Link to="/learn#contact" className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#e1e5ea] bg-white px-4 py-2.5 text-sm font-semibold text-[#4f5968] transition-colors hover:border-[#14171f] hover:text-[#14171f] active:scale-[0.98]">
+            <MessageCircle size={15} /> 联系客服
           </Link>
           <Link to="/pricing" className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#ff6a1a] px-4 py-2.5 text-sm font-semibold text-white transition-transform hover:bg-[#f15f12] active:scale-[0.98]">
-            查看套餐 <ArrowRight size={15} />
+            查看订阅 <ArrowRight size={15} />
           </Link>
         </div>
       </header>
@@ -183,6 +187,15 @@ export default function AccountDashboard() {
         })}
       </section>
 
+      <section className="mt-7 grid gap-px overflow-hidden rounded-xl border border-[#e5e8ed] bg-[#e5e8ed] lg:grid-cols-[1.15fr_0.85fr]">
+        <div className="bg-white p-5 sm:p-6">
+          <div className="flex items-start justify-between gap-4"><div><div className="flex items-center gap-2 text-sm font-bold"><BookOpen size={17} className="text-[#ff6a1a]" /> 学习进度</div><p className="mt-1 text-xs text-[#7d8797]">按“快速上手 → 分析 → 风控 → 复盘”完成产品使用路径。</p></div><div className="text-right"><div className="text-2xl font-bold tabular-nums">{learning.percent}%</div><div className="text-[11px] text-[#9aa3b0]">{learning.count} / {LEARNING_ARTICLES.length} 节</div></div></div>
+          <div className="mt-5 h-2 overflow-hidden rounded-full bg-[#edf0f3]"><div className="h-full rounded-full bg-[#ff6a1a] transition-[width] duration-300" style={{ width: `${learning.percent}%` }} /></div>
+          {nextLesson && <div className="mt-5 flex flex-col gap-3 border-t border-[#edf0f3] pt-4 sm:flex-row sm:items-center sm:justify-between"><div><div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#9aa3b0]">下一节建议</div><div className="mt-1 text-sm font-semibold">{nextLesson.title}</div></div><Link to={`/learn/${nextLesson.slug}`} className="inline-flex items-center gap-1 text-sm font-semibold text-[#d4530f]">继续学习 <ArrowRight size={14} /></Link></div>}
+        </div>
+        <div className="bg-[#fafbfc] p-5 sm:p-6"><div className="flex items-center gap-2 text-sm font-bold"><MessageCircle size={17} className="text-[#ff6a1a]" /> 需要协助？</div><p className="mt-2 text-sm leading-relaxed text-[#697386]">连接、订阅、授权码或使用问题，可直接联系企业微信客服并附上订单号或截图。</p><Link to="/learn#contact" className="mt-5 inline-flex items-center gap-2 rounded-lg bg-[#14171f] px-4 py-2.5 text-sm font-semibold text-white transition-transform active:scale-[0.98]">联系客服 <ArrowRight size={14} /></Link></div>
+      </section>
+
       <div className="mt-7 grid gap-7 xl:grid-cols-[1.35fr_0.85fr]">
         <section>
           <div className="mb-3 flex items-center justify-between">
@@ -207,7 +220,7 @@ export default function AccountDashboard() {
         </section>
 
         <section>
-          <div className="mb-3"><h2 className="text-sm font-bold">牛气值动态</h2><p className="mt-1 text-xs text-[#9aa3b0]">最近充值与使用明细</p></div>
+          <div className="mb-3"><h2 className="text-sm font-bold">套餐权益动态</h2><p className="mt-1 text-xs text-[#9aa3b0]">随订阅发放与 AI 服务使用明细</p></div>
           <div className="overflow-hidden rounded-xl border border-[#e5e8ed]">
             {data.recentCredits.length === 0 ? (
               <div className="flex min-h-44 flex-col items-center justify-center bg-[#fafbfc] px-5 text-center">
