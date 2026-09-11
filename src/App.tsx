@@ -16,10 +16,7 @@ import AccountLayout from './pages/account/AccountLayout'
 import Dashboard from './pages/account/Dashboard'
 import Subscription from './pages/account/Subscription'
 import Orders from './pages/account/Orders'
-import Credits from './pages/account/Credits'
 import Referral from './pages/account/Referral'
-import Commissions from './pages/account/Commissions'
-import Settings from './pages/account/Settings'
 import PaymentResult from './pages/PaymentResult'
 import Admin from './pages/Admin'
 
@@ -63,10 +60,10 @@ export default function App() {
         <Route index element={<Dashboard />} />
         <Route path="subscription" element={<Subscription />} />
         <Route path="orders" element={<Orders />} />
-        <Route path="credits" element={<Credits />} />
+        <Route path="credits" element={<Navigate to="/account/orders" replace />} />
         <Route path="referral" element={<Referral />} />
-        <Route path="commissions" element={<Commissions />} />
-        <Route path="settings" element={<Settings />} />
+        <Route path="commissions" element={<Navigate to="/account/referral" replace />} />
+        <Route path="settings" element={<Navigate to="/account" replace />} />
       </Route>
       <Route path="/payment/result" element={<PaymentResult />} />
       <Route path="/admin" element={<Admin />} />

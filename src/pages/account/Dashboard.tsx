@@ -70,11 +70,29 @@ export default function AccountDashboard() {
 
   if (err || !data) {
     return (
-      <div className="flex min-h-[360px] flex-col items-center justify-center text-center" role="alert">
-        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#fff1eb] text-[#d4530f]"><RefreshCw size={20} /></div>
-        <h1 className="mt-4 text-lg font-bold">账户数据暂时无法加载</h1>
-        <p className="mt-2 max-w-md text-sm text-[#697386]">{err || '请稍后重试，已有账户数据不会受到影响。'}</p>
-        <button onClick={loadDashboard} className="mt-5 rounded-lg bg-[#14171f] px-4 py-2.5 text-sm font-semibold text-white transition-transform active:scale-[0.98]">重新加载</button>
+      <div className="space-y-6" role="status">
+        <header className="flex flex-col gap-4 border-b border-[#edf0f3] pb-7 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#ff6a1a]">Account workspace</div>
+            <h1 className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">账户工作台</h1>
+            <p className="mt-2 text-sm text-[#7d8797]">账户明细正在同步，以下为工作台结构预览，不代表真实余额或收益。</p>
+          </div>
+          <button onClick={loadDashboard} className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#14171f] px-4 py-2.5 text-sm font-semibold text-white transition-transform active:scale-[0.98]"><RefreshCw size={15} /> 重新加载</button>
+        </header>
+        <div className="grid gap-px overflow-hidden rounded-xl border border-[#e5e8ed] bg-[#e5e8ed] sm:grid-cols-2 xl:grid-cols-4">
+          {['当前订阅', '牛气值余额', '推广返佣', '待处理事项'].map((label) => (
+            <div key={label} className="bg-white p-5"><div className="text-xs font-medium text-[#7d8797]">{label}</div><div className="mt-3 text-2xl font-bold text-[#a0a8b6]">—</div><div className="mt-1 text-[11px] text-[#a0a8b6]">等待账户数据同步</div></div>
+          ))}
+        </div>
+        <section className="rounded-xl border border-[#e5e8ed] bg-[#fafbfc] p-5 sm:p-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="text-sm font-bold">推广返佣规则</h2><p className="mt-1 text-xs text-[#7d8797]">返佣按邀请人当前有效订阅档位自动确定。</p></div><Link to="/account/referral" className="text-sm font-semibold text-[#d4530f]">查看推广中心 <ArrowRight className="inline" size={14} /></Link></div>
+          <div className="mt-5 grid divide-y divide-[#e5e8ed] rounded-lg border border-[#e5e8ed] bg-white sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+            <div className="p-4"><div className="text-xs text-[#7d8797]">未订阅 / 月付</div><div className="mt-1 text-xl font-bold">10%</div></div>
+            <div className="p-4"><div className="text-xs text-[#7d8797]">季付套餐</div><div className="mt-1 text-xl font-bold">15%</div></div>
+            <div className="p-4"><div className="text-xs text-[#7d8797]">年付套餐</div><div className="mt-1 text-xl font-bold">20%</div></div>
+          </div>
+        </section>
+        <p className="text-center text-xs text-[#9aa3b0]">{err || '账户服务正在同步。'}</p>
       </div>
     )
   }

@@ -144,7 +144,7 @@ async function getAccountDashboard(req, res) {
     // 订阅
     const { data: sub } = await admin
       .from('subscriptions')
-      .select('id, plan_code, status, starts_at, expires_at, nq_balance, last_order_no, plans(name, recommended)')
+      .select('id, plan_code, status, started_at, expires_at, nq_balance, last_order_no, plans(name, recommended)')
       .eq('user_id', user.id)
       .maybeSingle()
 
@@ -625,28 +625,39 @@ async function createCommissionForReferral(orderId, referredUserId, orderAmountC
     .maybeSingle()
   if (!referral) return
 
-  // 找到适用的返佣规则（默认取第一个 active）
+  // 返佣比例取决于邀请人的当前订阅：未订阅 10%，季付 15%，年付 20%。
+  // 月付与 3 天体验卡不升级返佣档位，保持基础返佣。
+  const { data: referrerSubscription } = await adminClient
+    .from('subscriptions')
+    .select('plan_code, status, expires_at')
+    .eq('user_id', referral.referrer_user_id)
+    .maybeSingle()
+  const isActiveSubscription = Boolean(
+    referrerSubscription?.status === 'active'
+      && referrerSubscription.expires_at
+      && new Date(referrerSubscription.expires_at) > new Date(),
+  )
+  const commissionRate = isActiveSubscription && referrerSubscription?.plan_code === 'yearly'
+    ? 20
+    : isActiveSubscription && referrerSubscription?.plan_code === 'quarterly'
+      ? 15
+      : 10
+
+  // 佣金规则表仍保留为结算等待期和后台审计来源。
   const { data: rule } = await adminClient
     .from('commission_rules')
     .select('*')
     .eq('status', 'active')
-    .order('rate', { ascending: false })
+    .order('id', { ascending: true })
     .limit(1)
     .maybeSingle()
-  if (!rule) return
 
-  // 计算佣金
-  let commissionAmount = 0
-  if (rule.commission_type === 'percentage') {
-    commissionAmount = Math.round(orderAmountCents * (rule.rate / 100))
-  } else {
-    commissionAmount = rule.fixed_amount
-  }
+  const commissionAmount = Math.round(orderAmountCents * (commissionRate / 100))
   if (commissionAmount <= 0) return
 
-  // 可用时间 = 现在 + hold_days
+  // 可用时间 = 现在 + hold_days；没有历史规则时仍按 30 天结算。
   const availableAt = new Date()
-  availableAt.setDate(availableAt.getDate() + (rule.hold_days || 0))
+  availableAt.setDate(availableAt.getDate() + (rule?.hold_days ?? 30))
 
   // 插入佣金记录
   await adminClient
@@ -655,9 +666,9 @@ async function createCommissionForReferral(orderId, referredUserId, orderAmountC
       beneficiary_user_id: referral.referrer_user_id,
       referred_user_id: referredUserId,
       order_id: orderId,
-      rule_id: rule.id,
+      rule_id: rule?.id || null,
       base_amount: orderAmountCents,
-      commission_rate: rule.rate,
+      commission_rate: commissionRate,
       commission_amount: commissionAmount,
       currency: 'CNY',
       status: 'pending',

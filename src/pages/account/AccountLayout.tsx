@@ -1,18 +1,15 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router'
-import { BarChart3, ChevronRight, CreditCard, Gift, LayoutDashboard, LogOut, Menu, Settings, Sparkles, Users, Wallet, X } from 'lucide-react'
+import { ChevronRight, CreditCard, Gift, LayoutDashboard, LogOut, Menu, Sparkles, Users, X } from 'lucide-react'
 import Nav from '../../sections/Nav'
 import Footer from '../../sections/Footer'
 import { useAuth } from '../../hooks/useAuth'
 
 const SIDEBAR_ITEMS = [
   { to: '/account', label: '总览', description: '账户概况', icon: LayoutDashboard, end: true },
-  { to: '/account/subscription', label: '我的订阅', description: '套餐与权益', icon: Sparkles },
-  { to: '/account/orders', label: '购买记录', description: '订单与授权码', icon: CreditCard },
-  { to: '/account/credits', label: '牛气值', description: '余额与明细', icon: Wallet },
-  { to: '/account/referral', label: '推广中心', description: '邀请与返佣', icon: Users },
-  { to: '/account/commissions', label: '返佣记录', description: '结算与提现', icon: BarChart3 },
-  { to: '/account/settings', label: '账户设置', description: '资料与安全', icon: Settings },
+  { to: '/account/subscription', label: '订阅', description: '套餐与权益', icon: Sparkles },
+  { to: '/account/orders', label: '购买与牛气值', description: '订单、授权与余额', icon: CreditCard },
+  { to: '/account/referral', label: '推广与返佣', description: '邀请、结算与提现', icon: Users },
 ]
 
 function isItemActive(pathname: string, item: (typeof SIDEBAR_ITEMS)[number]) {

@@ -129,19 +129,6 @@ export default function AccountSettings() {
           </div>
         </div>
       </div>
-
-      <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-6">
-        <h3 className="mb-2 text-lg font-semibold text-red-700">危险区域</h3>
-        <p className="mb-4 text-sm text-red-600">
-          删除账户会永久删除你的所有数据，包括订阅信息、订单记录、牛气值和佣金记录。此操作不可撤销。
-        </p>
-        <button
-          disabled
-          className="rounded-lg border border-red-300 bg-red-100 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-200 disabled:opacity-50"
-        >
-          删除账户（请联系客服）
-        </button>
-      </div>
     </div>
   )
 }
