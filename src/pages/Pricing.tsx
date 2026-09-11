@@ -125,7 +125,12 @@ export default function Pricing() {
         : undefined
       setPayment({ plan, channel, orderNo: d.orderNo, qrDataUrl, mode: d.mode, message: d.message })
     } catch (err) {
-      alert((err as Error).message)
+      const error = err as Error & { code?: string }
+      if (error.code === 'trial_already_used') {
+        alert('每个账户只能购买一次 3 天体验卡。你可以选择月卡、季卡或年卡继续使用。')
+      } else {
+        alert(error.message)
+      }
       setPayment(null)
     }
   }
@@ -211,6 +216,11 @@ export default function Pricing() {
                   {meta && (
                     <p className="mt-2.5 text-[12px] leading-relaxed text-[#6b7280]">
                       {meta.audience}
+                    </p>
+                  )}
+                  {tier === 'days3' && (
+                    <p className="mt-2 rounded-lg bg-[#fff6ef] px-2.5 py-2 text-[11px] font-semibold leading-relaxed text-[#d4530f]">
+                      每个账户仅限购买一次
                     </p>
                   )}
 

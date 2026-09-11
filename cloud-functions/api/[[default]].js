@@ -865,6 +865,30 @@ app.post('/orders', async (req, res) => {
   const { data: plan } = await admin.from('plans').select('*').eq('code', planCode).eq('is_active', true).maybeSingle()
   if (!plan) return res.status(404).json({ error: 'plan_not_found' })
 
+  // 3 天体验卡是一次性新客权益：同一账户只允许创建一次未取消订单。
+  // 这条校验必须在后端执行，不能只依赖价格页按钮状态，否则用户可直接调用接口重复购买。
+  if (plan.interval === 'days3' || plan.code === 'days3') {
+    const { data: previousTrial, error: trialLookupError } = await admin
+      .from('orders')
+      .select('order_no, status, created_at')
+      .eq('user_id', user.id)
+      .eq('plan_code', plan.code)
+      .neq('status', 'cancelled')
+      .limit(1)
+      .maybeSingle()
+    if (trialLookupError) {
+      console.error('[orders] trial eligibility lookup failed:', trialLookupError.message)
+      return res.status(500).json({ error: 'trial_check_failed', message: '暂时无法确认体验卡资格，请稍后重试' })
+    }
+    if (previousTrial) {
+      return res.status(409).json({
+        error: 'trial_already_used',
+        message: '每个账户只能购买一次 3 天体验卡。你可以选择月卡、季卡或年卡继续使用。',
+        orderNo: previousTrial.order_no,
+      })
+    }
+  }
+
   const orderNo = 'NN' + Date.now() + randomBytes(3).toString('hex').toUpperCase()
   const { error } = await admin.from('orders').insert({
     order_no: orderNo, user_id: user.id, plan_code: plan.code, amount_cents: plan.price_cents, channel,
