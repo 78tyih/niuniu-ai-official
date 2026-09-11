@@ -453,38 +453,69 @@ async function getAccountCommissions(req, res) {
 async function createPayoutRequest(req, res) {
   const user = await requireUser(req, res)
   if (!user) return
-  const { amount, method } = req.body || {}
-  if (!amount || amount <= 0) {
-    return res.status(400).json({ error: 'invalid_amount', message: '提现金额必须大于 0' })
+  const { amount, method, recipient } = req.body || {}
+  const payoutAmount = Number(amount)
+  if (!Number.isInteger(payoutAmount) || payoutAmount <= 0) {
+    return res.status(400).json({ error: 'invalid_amount', message: '返现金额无效' })
   }
-  if (!['wechat', 'alipay', 'bank', 'usdt'].includes(method)) {
-    return res.status(400).json({ error: 'invalid_method', message: '不支持该提现方式' })
+  if (!['alipay', 'usdt'].includes(method)) {
+    return res.status(400).json({ error: 'invalid_method', message: '目前仅支持支付宝或 USDT 返现' })
   }
-  // 校验可提现
+  const snapshot = method === 'alipay'
+    ? { account_name: String(recipient?.account_name || '').trim(), account: String(recipient?.account || '').trim() }
+    : { network: String(recipient?.network || '').trim(), address: String(recipient?.address || '').trim(), currency: 'USDT' }
+  const isRecipientValid = method === 'alipay'
+    ? snapshot.account_name.length > 0 && snapshot.account.length >= 3
+    : snapshot.network.length > 0 && snapshot.address.length >= 12
+  if (!isRecipientValid) {
+    return res.status(400).json({ error: 'invalid_recipient', message: method === 'alipay' ? '请填写支付宝实名与收款账号' : '请填写 USDT 链名称与收款地址' })
+  }
+
   try {
-    const { data: available } = await admin
+    const { data: available, error: availableError } = await admin
       .from('commissions')
       .select('sum(commission_amount)')
       .eq('beneficiary_user_id', user.id)
       .eq('status', 'available')
-    const availableAmount = available?.[0]?.sum || 0
-    if (amount > availableAmount) {
-      return res.status(400).json({ error: 'insufficient_funds', message: `可提现佣金不足，当前可提现 ${(availableAmount / 100).toLocaleString('zh-CN')} 元` })
+    if (availableError) throw availableError
+    const availableAmount = Number(available?.[0]?.sum || 0)
+    // 当前版本按整笔可用余额返现，避免部分冻结时发生佣金归属不清。
+    if (payoutAmount !== availableAmount) {
+      return res.status(400).json({ error: 'amount_must_match_available', message: `请按全部可返现金额申请，当前为 ${(availableAmount / 100).toLocaleString('zh-CN')} 元` })
     }
-    // 锁住佣金
-    await admin
+
+    const { error: reserveError } = await admin
       .from('commissions')
       .update({ status: 'reserved' })
       .eq('beneficiary_user_id', user.id)
       .eq('status', 'available')
-    // 创建提现请求
+    if (reserveError) throw reserveError
     const { error } = await admin
       .from('payout_requests')
-      .insert({ user_id: user.id, amount, currency: 'CNY', method })
+      .insert({ user_id: user.id, amount: payoutAmount, currency: 'CNY', method, account_snapshot: snapshot })
+    if (error) {
+      await admin.from('commissions').update({ status: 'available' }).eq('beneficiary_user_id', user.id).eq('status', 'reserved')
+      throw error
+    }
+    await audit(user.id, 'cashback_requested', { amount: payoutAmount, method })
+    res.json({ ok: true, message: '返现工单已提交，审核通过后将按收款信息人工打款。' })
+  } catch (err) {
+    res.status(500).json({ error: 'db_error', message: String(err?.message || err) })
+  }
+}
+
+async function getAccountPayouts(req, res) {
+  const user = await requireUser(req, res)
+  if (!user) return
+  try {
+    const { data, error } = await admin
+      .from('payout_requests')
+      .select('id, amount, currency, method, status, requested_at, approved_at, paid_at, rejected_at, admin_note')
+      .eq('user_id', user.id)
+      .order('requested_at', { ascending: false })
+      .limit(20)
     if (error) throw error
-    // 审计
-    await audit(user.id, 'payout_requested', { amount, method })
-    res.json({ ok: true, message: '提现申请已提交，审核通过后会尽快付款' })
+    res.json({ payouts: data || [] })
   } catch (err) {
     res.status(500).json({ error: 'db_error', message: String(err?.message || err) })
   }
@@ -861,6 +892,7 @@ app.get('/account/credits', getAccountCredits)
 app.get('/account/credits/history', getAccountCreditsHistory)
 app.get('/account/referral', getAccountReferral)
 app.get('/account/commissions', getAccountCommissions)
+app.get('/account/payouts', getAccountPayouts)
 app.post('/account/payouts', createPayoutRequest)
 app.get('/account/settings', getAccountSettings)
 app.patch('/account/settings', updateAccountSettings)

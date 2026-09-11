@@ -99,6 +99,7 @@ interface PayoutItem {
   status: string
   requested_at: string
   admin_note: string | null
+  account_snapshot?: { account_name?: string; account?: string; network?: string; address?: string; currency?: string } | null
 }
 
 interface AuditItem {
@@ -992,7 +993,7 @@ function PayoutsTab() {
                 <td className="px-5 py-3 font-mono text-xs text-[#6b7280]">#{p.id}</td>
                 <td className="px-4 py-3 font-mono text-xs">{p.user_id.slice(0, 8)}…</td>
                 <td className="px-4 py-3 font-semibold">{fmtPrice(p.amount)}</td>
-                <td className="px-4 py-3">{METHOD_LABEL[p.method] || p.method}</td>
+                <td className="px-4 py-3">{METHOD_LABEL[p.method] || p.method}<div className="mt-1 text-[11px] leading-relaxed text-[#6b7280]">{p.method === 'alipay' ? `${p.account_snapshot?.account_name || '未填实名'} · ${p.account_snapshot?.account || '未填账号'}` : `${p.account_snapshot?.network || '未填链'} · ${p.account_snapshot?.address || '未填地址'}`}</div></td>
                 <td className="px-4 py-3">
                   <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${PAYOUT_STATUS_LABEL[p.status]?.[1] || 'bg-[#6b7280]/10 text-[#6b7280]'}`}>
                     {PAYOUT_STATUS_LABEL[p.status]?.[0] || p.status}
