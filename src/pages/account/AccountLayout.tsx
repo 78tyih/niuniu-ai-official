@@ -1,18 +1,23 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router'
+import { BarChart3, ChevronRight, CreditCard, Gift, LayoutDashboard, LogOut, Menu, Settings, Sparkles, Users, Wallet, X } from 'lucide-react'
 import Nav from '../../sections/Nav'
 import Footer from '../../sections/Footer'
 import { useAuth } from '../../hooks/useAuth'
 
 const SIDEBAR_ITEMS = [
-  { to: '/account', label: '总览', icon: '⊞', end: true },
-  { to: '/account/subscription', label: '我的订阅', icon: '◈' },
-  { to: '/account/orders', label: '购买记录', icon: '☰' },
-  { to: '/account/credits', label: '牛气值', icon: '✦' },
-  { to: '/account/referral', label: '推广中心', icon: '↗' },
-  { to: '/account/commissions', label: '返佣记录', icon: '¥' },
-  { to: '/account/settings', label: '账户设置', icon: '⚙' },
+  { to: '/account', label: '总览', description: '账户概况', icon: LayoutDashboard, end: true },
+  { to: '/account/subscription', label: '我的订阅', description: '套餐与权益', icon: Sparkles },
+  { to: '/account/orders', label: '购买记录', description: '订单与授权码', icon: CreditCard },
+  { to: '/account/credits', label: '牛气值', description: '余额与明细', icon: Wallet },
+  { to: '/account/referral', label: '推广中心', description: '邀请与返佣', icon: Users },
+  { to: '/account/commissions', label: '返佣记录', description: '结算与提现', icon: BarChart3 },
+  { to: '/account/settings', label: '账户设置', description: '资料与安全', icon: Settings },
 ]
+
+function isItemActive(pathname: string, item: (typeof SIDEBAR_ITEMS)[number]) {
+  return item.end ? pathname === item.to : pathname.startsWith(item.to)
+}
 
 export default function AccountLayout() {
   const { user, loading, logout } = useAuth()
@@ -30,100 +35,107 @@ export default function AccountLayout() {
 
   if (loading || !user) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#fafaf8] text-[#9ca3af]">
-        加载中…
+      <div className="flex min-h-[100dvh] items-center justify-center bg-[#f7f8fa] text-sm text-[#8a93a3]">
+        正在载入账户空间…
       </div>
     )
   }
 
-  return (
-    <div className="min-h-screen bg-[#fafaf8] text-[#111111]">
-      <Nav />
-      <div className="mx-auto max-w-[1280px] px-6 pt-24 pb-16 sm:px-10 sm:pt-28">
-        {/* Mobile Header */}
-        <div className="mb-4 flex items-center justify-between sm:hidden">
-          <h1 className="font-display text-lg font-bold">
-            {SIDEBAR_ITEMS.find((i) => i.to === location.pathname || (i.end && location.pathname === '/account'))?.label || '账户'}
-          </h1>
-          <button
-            onClick={() => setMobileOpen(!mobileOpen)}
-            className="rounded-lg border border-[#e5e7eb] px-3 py-1.5 text-sm"
+  const activeItem = SIDEBAR_ITEMS.find((item) => isItemActive(location.pathname, item)) || SIDEBAR_ITEMS[0]
+  const displayName = user.name || user.email?.split('@')[0] || '用户'
+
+  const handleLogout = () => {
+    logout()
+    navigate('/')
+  }
+
+  const navigation = (mobile = false) => (
+    <nav className={mobile ? 'space-y-1' : 'space-y-1.5'} aria-label="账户导航">
+      <div className="mb-4 px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#a0a8b6]">Workspace</div>
+      {SIDEBAR_ITEMS.map((item) => {
+        const Icon = item.icon
+        return (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            end={item.end}
+            className={({ isActive }) =>
+              `group flex items-center gap-3 rounded-xl px-3 py-3 transition-colors ${
+                isActive
+                  ? 'bg-[#14171f] text-white shadow-[0_8px_20px_-12px_rgba(20,23,31,0.65)]'
+                  : 'text-[#697386] hover:bg-[#eef1f5] hover:text-[#14171f]'
+              }`
+            }
           >
-            {mobileOpen ? '关闭' : '菜单'}
-          </button>
-        </div>
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-current/10">
+              <Icon size={16} strokeWidth={1.8} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-semibold">{item.label}</span>
+              <span className="mt-0.5 block text-[11px] opacity-65">{item.description}</span>
+            </span>
+            <ChevronRight size={14} className="opacity-0 transition-opacity group-hover:opacity-60" />
+          </NavLink>
+        )
+      })}
+      <div className="my-5 border-t border-[#e5e8ed]" />
+      <button
+        onClick={handleLogout}
+        className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold text-[#697386] transition-colors hover:bg-[#fff1eb] hover:text-[#d4530f]"
+      >
+        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-current/10"><LogOut size={16} strokeWidth={1.8} /></span>
+        退出登录
+      </button>
+    </nav>
+  )
 
-        <div className="flex gap-8">
-          {/* Desktop Sidebar */}
-          <aside className="hidden w-44 shrink-0 sm:block">
-            <nav className="sticky top-28 space-y-1">
-              {SIDEBAR_ITEMS.map((item) => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  end={item.end}
-                  className={({ isActive }) =>
-                    `flex items-center gap-2.5 rounded-lg px-3.5 py-2 text-sm transition-colors ${
-                      isActive
-                        ? 'bg-[#f97316]/10 font-semibold text-[#f97316]'
-                        : 'text-[#6b7280] hover:bg-[#f5f5f3] hover:text-[#111111]'
-                    }`
-                  }
-                >
-                  <span className="text-xs">{item.icon}</span>
-                  {item.label}
-                </NavLink>
-              ))}
-              <hr className="my-3 border-[#e5e7eb]" />
-              <button
-                onClick={() => { logout(); navigate('/') }}
-                className="flex w-full items-center gap-2.5 rounded-lg px-3.5 py-2 text-sm text-[#9ca3af] transition-colors hover:bg-[#f5f5f3] hover:text-[#111111]"
-              >
-                <span className="text-xs">↩</span>
-                退出登录
-              </button>
-            </nav>
-          </aside>
+  return (
+    <div className="min-h-[100dvh] bg-[#f7f8fa] text-[#14171f]">
+      <Nav />
+      <div className="mx-auto flex max-w-[1440px] gap-6 px-4 pb-16 pt-24 sm:px-8 sm:pt-28 lg:px-10">
+        <aside className="hidden w-[232px] shrink-0 lg:block">
+          <div className="sticky top-28">
+            <div className="mb-5 flex items-center gap-3 border-b border-[#e5e8ed] px-3 pb-5">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#ff6a1a] text-white"><Gift size={18} /></div>
+              <div className="min-w-0">
+                <div className="truncate text-sm font-bold">牛牛 AI</div>
+                <div className="truncate text-xs text-[#8a93a3]">用户工作台</div>
+              </div>
+            </div>
+            {navigation()}
+          </div>
+        </aside>
 
-          {/* Mobile Menu */}
+        <div className="min-w-0 flex-1">
+          <div className="mb-5 flex items-center justify-between rounded-2xl border border-[#e5e8ed] bg-white px-4 py-3 shadow-[0_8px_24px_-24px_rgba(20,23,31,0.4)] sm:px-6">
+            <div>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#a0a8b6]">Account workspace</div>
+              <div className="mt-1 flex items-center gap-2 text-sm font-semibold">
+                <span>{activeItem.label}</span><ChevronRight size={14} className="text-[#a0a8b6]" /><span className="font-normal text-[#8a93a3]">{displayName}</span>
+              </div>
+            </div>
+            <button
+              onClick={() => setMobileOpen(true)}
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#e5e8ed] text-[#697386] lg:hidden"
+              aria-label="打开账户导航"
+            ><Menu size={18} /></button>
+          </div>
+
           {mobileOpen && (
-            <div className="fixed inset-0 z-50 bg-black/30 sm:hidden" onClick={() => setMobileOpen(false)}>
-              <div className="w-64 bg-white p-5 pt-20 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-                <nav className="space-y-1">
-                  {SIDEBAR_ITEMS.map((item) => (
-                    <NavLink
-                      key={item.to}
-                      to={item.to}
-                      end={item.end}
-                      className={({ isActive }) =>
-                        `flex items-center gap-2.5 rounded-lg px-3.5 py-2.5 text-sm transition-colors ${
-                          isActive
-                            ? 'bg-[#f97316]/10 font-semibold text-[#f97316]'
-                            : 'text-[#6b7280] hover:bg-[#f5f5f3]'
-                        }`
-                      }
-                    >
-                      <span className="text-xs">{item.icon}</span>
-                      {item.label}
-                    </NavLink>
-                  ))}
-                  <hr className="my-3 border-[#e5e7eb]" />
-                  <button
-                    onClick={() => { logout(); navigate('/') }}
-                    className="flex w-full items-center gap-2.5 rounded-lg px-3.5 py-2.5 text-sm text-[#9ca3af]"
-                  >
-                    <span className="text-xs">↩</span>
-                    退出登录
-                  </button>
-                </nav>
+            <div className="fixed inset-0 z-50 bg-[#14171f]/30 lg:hidden" onClick={() => setMobileOpen(false)}>
+              <div className="h-full w-[min(88vw,320px)] bg-white p-5 pt-8 shadow-2xl" onClick={(event) => event.stopPropagation()}>
+                <div className="mb-8 flex items-center justify-between">
+                  <div className="text-sm font-bold">账户导航</div>
+                  <button onClick={() => setMobileOpen(false)} className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#e5e8ed] text-[#697386]" aria-label="关闭账户导航"><X size={17} /></button>
+                </div>
+                {navigation(true)}
               </div>
             </div>
           )}
 
-          {/* Content */}
-          <div className="min-w-0 flex-1">
+          <main className="rounded-2xl border border-[#e5e8ed] bg-white p-5 shadow-[0_12px_28px_-28px_rgba(20,23,31,0.45)] sm:p-7 lg:p-8">
             <Outlet />
-          </div>
+          </main>
         </div>
       </div>
       <Footer />
