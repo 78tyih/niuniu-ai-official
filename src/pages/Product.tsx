@@ -280,6 +280,9 @@ export default function Product() {
             </div>
           ))}
         </div>
+        <p className="mt-6 text-center text-[12px] leading-relaxed text-[#9ca3af]">
+          MetaTrader 5 与 MT5 是 MetaQuotes Ltd 的注册商标。牛牛 AI 为独立开发的第三方工具，非 MetaQuotes 关联产品。
+        </p>
       </Section>
 
       {/* 功能展示：左图滑动 + 右侧说明 */}
