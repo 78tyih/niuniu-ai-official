@@ -386,8 +386,8 @@ export default function Home() {
         />
         <div className="reveal mt-10 overflow-hidden rounded-xl border border-[#e5e7eb] bg-white shadow-[0_24px_60px_-40px_rgba(11,23,36,0.35)]">
           <video
-            src="/mt5/mt5-terminal.mp4"
-            poster="/mt5/mt5-charts-candles.png"
+            src="/mt5/mt5-real-switch.mp4"
+            poster="/mt5/mt5-real-poster.jpg"
             autoPlay
             muted
             loop
