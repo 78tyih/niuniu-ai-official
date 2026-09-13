@@ -85,8 +85,10 @@ export default function Demo() {
       {/* 紧凑头部 */}
       <section className="pb-8 pt-[104px] sm:pt-[128px]">
         <div className="mx-auto max-w-[1280px] px-6 sm:px-10">
-          <h1 className="font-display text-[28px] font-bold sm:text-[34px]">产品演示</h1>
-          <p className="mt-2 text-[15px] text-[#6b7280]">用真实操作了解牛牛AI。</p>
+          <div className="mx-auto max-w-2xl text-center">
+            <h1 className="font-display text-[28px] font-bold sm:text-[34px]">产品演示</h1>
+            <p className="mt-2 text-[15px] text-[#6b7280]">用真实操作了解牛牛AI。</p>
+          </div>
         </div>
       </section>
 

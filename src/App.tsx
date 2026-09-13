@@ -1,4 +1,5 @@
 import { Routes, Route, Navigate } from 'react-router'
+import ScrollToTop from './components/ScrollToTop'
 import Home from './pages/Home'
 import Demo from './pages/Demo'
 import Product from './pages/Product'
@@ -31,11 +32,13 @@ const TRACK_PATHS = [
 
 export default function App() {
   return (
-    <Routes>
-      <Route path="/" element={<Home />} />
-      <Route path="/demo" element={<Demo />} />
-      <Route path="/product" element={<Product />} />
-      <Route path="/pricing" element={<Pricing />} />
+    <>
+      <ScrollToTop />
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/demo" element={<Demo />} />
+        <Route path="/product" element={<Product />} />
+        <Route path="/pricing" element={<Pricing />} />
 
       {/* 学习中心 */}
       <Route path="/learn" element={<LearnHub />} />
@@ -67,6 +70,7 @@ export default function App() {
       </Route>
       <Route path="/payment/result" element={<PaymentResult />} />
       <Route path="/admin" element={<Admin />} />
-    </Routes>
+      </Routes>
+    </>
   )
 }

@@ -176,11 +176,11 @@ export default function Product() {
       {/* Product Hero */}
       <section className="pb-[56px] pt-[132px] sm:pb-[72px] sm:pt-[164px]">
         <div className="mx-auto max-w-[1280px] px-6 sm:px-10">
-          <div className="reveal max-w-2xl">
+          <div className="reveal mx-auto max-w-3xl text-center">
             <h1 className="font-display text-[34px] font-bold leading-[1.15] sm:text-[46px]">
               让 AI 进入你的交易工作流
             </h1>
-            <p className="mt-5 max-w-md text-base leading-relaxed text-[#6b7280] sm:text-[17px]">
+            <p className="mx-auto mt-5 max-w-xl text-base leading-relaxed text-[#6b7280] sm:text-[17px]">
               连接 MT5，将行情分析、风险审核和交易复盘放到同一个工作流中。
             </p>
             <div className="mt-8">

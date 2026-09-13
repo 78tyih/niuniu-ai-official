@@ -17,6 +17,7 @@ import {
   type LearningTrack,
 } from '../../content/learn'
 import { UPDATES } from '../../content/updates'
+import { HOME_CHAPTERS as DEMO_CHAPTERS } from '../../lib/chapters'
 
 export default function LearnHub() {
   useReveal()
@@ -39,24 +40,59 @@ export default function LearnHub() {
       {/* Hero */}
       <section className="pb-10 pt-[104px] sm:pt-[128px]">
         <div className="mx-auto max-w-[1280px] px-6 sm:px-10">
-          <div className="max-w-[820px]">
+          <div className="mx-auto max-w-[820px] text-center">
             <div className="text-[11px] font-semibold tracking-[0.08em] text-[#9ca3af]">
               NIUNIU AI LEARN
             </div>
             <h1 className="mt-3 font-display text-[30px] font-bold leading-tight sm:text-[38px]">
               牛牛 AI 学习中心
             </h1>
-            <p className="mt-4 text-[16px] leading-relaxed text-[#6b7280] sm:text-[17px]">
+            <p className="mx-auto mt-4 max-w-xl text-[16px] leading-relaxed text-[#6b7280] sm:text-[17px]">
               从连接 MT5，到让 AI 按你的方法分析，一步一步学会牛牛 AI。
             </p>
           </div>
 
-          <div className="mt-8 max-w-[640px]">
+          <div className="mx-auto mt-8 max-w-[640px]">
             <LearningSearch />
           </div>
 
-          <div className="mt-4 text-[13px] text-[#9ca3af]">
+          <div className="mt-4 text-center text-[13px] text-[#9ca3af]">
             共 {LEARNING_STATS.articleCount} 篇教程 · {LEARNING_STATS.videoCount} 条视频
+          </div>
+        </div>
+      </section>
+
+      {/* 视频演示：先看真实操作，再看图文 */}
+      <section className="border-t border-[#eceae6] py-10 sm:py-14">
+        <div className="mx-auto max-w-[1280px] px-6 sm:px-10">
+          <div className="reveal text-center">
+            <h2 className="font-display text-[22px] font-bold sm:text-[26px]">
+              先看一遍真实操作
+            </h2>
+            <p className="mx-auto mt-2 max-w-xl text-[14px] text-[#6b7280]">
+              每段都是产品内的真实录屏，点开就能播。
+            </p>
+          </div>
+          <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {DEMO_CHAPTERS.map((c) => (
+              <div
+                key={c.slug}
+                className="reveal overflow-hidden rounded-xl border border-[#eceae6] bg-white"
+              >
+                <video
+                  src={c.video}
+                  poster={c.poster}
+                  controls
+                  playsInline
+                  preload="none"
+                  className="aspect-video w-full bg-black object-cover"
+                />
+                <div className="px-5 py-4">
+                  <div className="font-display text-[15px] font-bold">{c.title}</div>
+                  <div className="mt-1 text-[13px] leading-relaxed text-[#6b7280]">{c.desc}</div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -67,27 +103,59 @@ export default function LearnHub() {
           <h2 className="reveal font-display text-[22px] font-bold sm:text-[26px]">
             第一次使用？从这里开始
           </h2>
-          <div className="mt-8 divide-y divide-[#eceae6] border-t border-[#eceae6]">
+          <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {quickStart.map((a, i) => (
               <Link
                 key={a.id}
                 to={`/learn/${a.slug}`}
-                className="reveal group flex items-center gap-5 py-5 transition-colors hover:bg-white/60 sm:gap-8"
+                className="reveal group overflow-hidden rounded-xl border border-[#eceae6] bg-white transition-shadow hover:shadow-[0_8px_28px_rgba(17,17,17,0.08)]"
               >
-                <span className="font-display text-[20px] font-bold tabular-nums text-[#d1d5db] transition-colors group-hover:text-[#f97316] sm:text-[24px]">
-                  {String(i + 1).padStart(2, '0')}
-                </span>
-                <span className="flex-1">
-                  <span className="block font-display text-[16px] font-bold leading-snug sm:text-[18px]">
-                    {a.title}
-                  </span>
-                  <span className="mt-1 block line-clamp-2 text-[13px] leading-relaxed text-[#6b7280] sm:text-[14px]">
+                <div className="relative aspect-video w-full overflow-hidden bg-[#f3f4f6]">
+                  {a.video ? (
+                    <>
+                      <img
+                        src={a.video.poster}
+                        alt={`${a.title} 教程封面`}
+                        loading="lazy"
+                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                      />
+                      <span className="absolute left-3 top-3 rounded-md bg-[#0b1724]/85 px-2 py-0.5 font-display text-[13px] font-bold tabular-nums text-white">
+                        {String(i + 1).padStart(2, '0')}
+                      </span>
+                      <span className="absolute inset-0 flex items-center justify-center">
+                        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white/90 shadow-[0_6px_18px_rgba(17,17,17,0.2)] transition-transform group-hover:scale-110">
+                          <svg
+                            className="h-5 w-5 translate-x-[1px] text-[#111111]"
+                            viewBox="0 0 24 24"
+                            fill="currentColor"
+                            aria-hidden="true"
+                          >
+                            <path d="M8 5v14l11-7z" />
+                          </svg>
+                        </span>
+                      </span>
+                      <span className="absolute bottom-2 right-2 rounded bg-[#0b1724]/80 px-1.5 py-0.5 font-mono text-[11px] text-white">
+                        {Math.round(a.video.durationSeconds)}s
+                      </span>
+                    </>
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-[13px] text-[#9ca3af]">
+                      图文教程
+                    </div>
+                  )}
+                </div>
+                <div className="p-5">
+                  <h3 className="font-display text-[16px] font-bold leading-snug">{a.title}</h3>
+                  <p className="mt-2 line-clamp-2 text-[13px] leading-relaxed text-[#6b7280]">
                     {a.shortAnswer}
-                  </span>
-                </span>
-                <span className="shrink-0 text-[18px] text-[#d1d5db] transition-colors group-hover:text-[#f97316]">
-                  →
-                </span>
+                  </p>
+                  <div className="mt-3 text-[13px] font-medium text-[#f97316]">
+                    查看教程
+                    <span className="ml-1 inline-block transition-transform group-hover:translate-x-0.5">
+                      →
+                    </span>
+                  </div>
+                </div>
               </Link>
             ))}
           </div>
