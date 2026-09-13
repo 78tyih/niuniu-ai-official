@@ -31,6 +31,22 @@ const GALLERY = [
 ]
 
 /** Workflow：桌面端紧凑 Sticky Story（左图右文，滚动联动切换）；移动端纵向 Step */
+/** MT5 原生：取自 MT5 真实终端能力，与产品页表述保持一致 */
+const MT5_FACTS = [
+  {
+    title: '图表与指标',
+    desc: 'MT5 的 K 线、周期与技术指标原样保留，牛牛 AI 读取后给出分析结论。',
+  },
+  {
+    title: '订单与执行',
+    desc: '方案以挂单方式交给 MT5 执行，价位由 MT5 校验，不绕过你的终端。',
+  },
+  {
+    title: '持仓与账户',
+    desc: '行情、持仓与账户状态从 MT5 实时同步，AI 分析的是你的真实账户。',
+  },
+]
+
 function Workflow() {
   const [active, setActive] = useState(0)
   const stepRefs = useRef<(HTMLDivElement | null)[]>([])
@@ -362,7 +378,36 @@ export default function Home() {
         </div>
       </section>
 
-      {/* 02 Workflow：紧凑 Sticky Story */}
+      {/* 02 MT5 原生：先说明它跑在什么之上 */}
+      <Section bordered>
+        <SectionHead
+          title="为 MT5 交易者打造"
+          desc="牛牛 AI 不替换 MT5，而是接入你正在使用的终端——图表、订单与持仓都来自你的 MT5。"
+        />
+        <div className="reveal mt-10 overflow-hidden rounded-xl border border-[#e5e7eb] bg-white shadow-[0_24px_60px_-40px_rgba(11,23,36,0.35)]">
+          <video
+            src="/mt5/mt5-terminal.mp4"
+            poster="/mt5/mt5-charts-candles.png"
+            autoPlay
+            muted
+            loop
+            playsInline
+            preload="metadata"
+            aria-label="MT5 交易终端界面：市场报价、图表与自动交易"
+            className="block aspect-video w-full bg-black object-cover"
+          />
+        </div>
+        <div className="mt-6 grid gap-4 sm:grid-cols-3">
+          {MT5_FACTS.map((f) => (
+            <div key={f.title} className="reveal rounded-xl border border-[#eceae6] bg-white p-5">
+              <div className="font-display text-[15px] font-bold">{f.title}</div>
+              <p className="mt-1 text-[13px] leading-relaxed text-[#6b7280]">{f.desc}</p>
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      {/* 03 Workflow：紧凑 Sticky Story */}
       <Section bordered>
         <SectionHead
           title="从分析到复盘，AI 与你并肩决策"
