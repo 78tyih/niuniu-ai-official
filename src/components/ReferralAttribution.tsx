@@ -54,12 +54,10 @@ export default function ReferralAttribution() {
         }
       })
       .catch(() => {
-        // 绑定失败不打扰用户：下次进页面还会重试一次
-        try {
-          localStorage.removeItem(REF_KEY)
-        } catch {
-          /* ignore */
-        }
+        // 绑定失败**保留** code，下次进页面自动重试。
+        // 这里原来也把 code 删了：一次网络抖动或接口报错，这个用户就永久失去归因，
+        // 推广人白干（referred_user_id 有唯一约束，绑定不可逆）。宁可多留几次重试。
+        tried.current = false
       })
   }, [user])
 

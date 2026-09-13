@@ -334,6 +334,17 @@ async function getAccountReferral(req, res) {
   if (!user) return
   try {
     // 我的邀请码
+    //
+    // 关键：这里要**先保证有码**再读。
+    // ensureReferralCodeForUser 只被 /account/ensure-referral-code 调用过，
+    // 而前端从未调用那个接口 —— 结果 referral_codes 一直是 0 行：
+    // 没有任何用户拿到过自己的推广链接，于是 referrals / commissions 永远是 0。
+    // 打开「推广与返佣」页即建码（RPC 幂等，已存在直接返回）。
+    try {
+      await ensureReferralCodeForUser(user.id)
+    } catch (err) {
+      console.error('ensure_referral_code_failed', user.id, String(err?.message || err))
+    }
     const { data: codes } = await admin
       .from('referral_codes')
       .select('*')
