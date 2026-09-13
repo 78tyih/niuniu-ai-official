@@ -6,7 +6,8 @@ import ProductFrame from '../components/ProductFrame'
 import Section, { SectionHead } from '../components/Section'
 import { HOME_CHAPTERS } from '../lib/chapters'
 import { useReveal } from '../hooks/useReveal'
-import { api, fmtPrice, INTERVAL_LABEL, type Plan } from '../lib/api'
+import { usePlans } from '../hooks/usePlans'
+import { fmtPrice, INTERVAL_LABEL } from '../lib/api'
 
 const STEPS = [
   { no: '01', name: 'Analysis', title: 'AI 帮你整理行情与市场条件', img: '/screenshots/ai-analysis.jpg' },
@@ -301,12 +302,7 @@ function Theater() {
 
 /** 首页 Pricing Preview（紧凑四卡） */
 function PricingPreview() {
-  const [plans, setPlans] = useState<Plan[]>([])
-  useEffect(() => {
-    api<{ plans: Plan[] }>('/plans')
-      .then((d) => setPlans(d.plans))
-      .catch(() => {})
-  }, [])
+  const { plans } = usePlans()
 
   return (
     <div className="mt-10 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

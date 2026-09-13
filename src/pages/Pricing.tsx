@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import QRCode from 'qrcode'
 import Nav from '../sections/Nav'
@@ -6,6 +6,7 @@ import Footer from '../sections/Footer'
 import { api, fmtPrice, INTERVAL_LABEL, CHANNEL_LABEL, enabledPaymentMethods, type Plan } from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
 import { useReveal } from '../hooks/useReveal'
+import { usePlans } from '../hooks/usePlans'
 
 type Channel = (typeof enabledPaymentMethods)[number]
 
@@ -76,22 +77,13 @@ const PRICING_FAQS = [
 
 export default function Pricing() {
   useReveal()
-  const [plans, setPlans] = useState<Plan[]>([])
-  const [notice, setNotice] = useState('')
   const [payment, setPayment] = useState<PaymentState | null>(null)
   const [openFaq, setOpenFaq] = useState<number | null>(0)
   const [hovered, setHovered] = useState<string | null>(null)
   const { user } = useAuth()
   const navigate = useNavigate()
 
-  useEffect(() => {
-    api<{ plans: Plan[]; notice: string }>('/plans')
-      .then((d) => {
-        setPlans(d.plans)
-        setNotice(d.notice)
-      })
-      .catch((e) => setNotice((e as Error).message))
-  }, [])
+  const { plans, notice } = usePlans()
 
   const openCheckout = (plan: Plan) => {
     if (!user) {
