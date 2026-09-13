@@ -402,6 +402,56 @@ async function getAccountReferral(req, res) {
   }
 }
 
+/**
+ * 绑定邀请关系。
+ *
+ * 归因规则：注册（首次登录）时冻结推荐人，而不是付款时取最后一个链接。
+ * referred_user_id 上有 unique 约束，所以只会有一次绑定成功，后续调用直接返回已存在。
+ */
+async function bindReferral(req, res) {
+  const user = await requireUser(req, res)
+  if (!user) return
+  const code = String((req.body || {}).code || '').trim()
+  if (!code) return res.status(400).json({ error: 'missing_code', message: '缺少邀请码' })
+
+  try {
+    const { data: codeRow } = await admin
+      .from('referral_codes')
+      .select('id, owner_user_id, status')
+      .eq('code', code)
+      .maybeSingle()
+    if (!codeRow) return res.status(404).json({ error: 'code_not_found', message: '邀请码不存在' })
+    if (codeRow.status && codeRow.status !== 'active') {
+      return res.status(400).json({ error: 'code_inactive', message: '邀请码已停用' })
+    }
+    // 自己用自己的码：不建立关系，也不报错（避免暴露信息）
+    if (codeRow.owner_user_id === user.id) {
+      return res.json({ ok: true, bound: false, reason: 'self_referral' })
+    }
+    const { data: existing } = await admin
+      .from('referrals')
+      .select('id, referrer_user_id')
+      .eq('referred_user_id', user.id)
+      .maybeSingle()
+    if (existing) {
+      return res.json({ ok: true, bound: false, reason: 'already_bound' })
+    }
+    const { error } = await admin
+      .from('referrals')
+      .insert({
+        referrer_user_id: codeRow.owner_user_id,
+        referred_user_id: user.id,
+        referral_code_id: codeRow.id,
+        status: 'active',
+      })
+    if (error) throw error
+    await audit(user.id, 'referral_bound', { code, referrer: codeRow.owner_user_id })
+    res.json({ ok: true, bound: true })
+  } catch (err) {
+    res.status(500).json({ error: 'db_error', message: String(err?.message || err) })
+  }
+}
+
 async function getAccountCommissions(req, res) {
   const user = await requireUser(req, res)
   if (!user) return
@@ -632,9 +682,16 @@ async function fulfillmentService(orderNo, userId, adminClient = admin) {
     })
   }
 
-  // 6. 处理返佣（有邀请关系时）
-  if (order.referral_id) {
-    await createCommissionForReferral(orderNo, order.user_id, order.amount_cents, adminClient)
+  // 6. 处理返佣
+  //    以前这里要求 order.referral_id 存在才发佣，但归因关系从未写入，
+  //    所以佣金一直是 0。改为：只要存在邀请关系就发。
+  //    注意 order_id 必须是 orders.id（bigint）—— 之前传的是 order_no（字符串），
+  //    一旦真的触发发佣就会因类型错误 22P02 把整个履约流程打断。
+  try {
+    await createCommissionForReferral(order.id, order.user_id, order, adminClient)
+  } catch (err) {
+    console.error('commission_failed', orderNo, String(err?.message || err))
+    // 佣金失败绝不能影响已支付订单的履约
   }
 
   // 7. 标记 fulfilled
@@ -647,44 +704,52 @@ async function fulfillmentService(orderNo, userId, adminClient = admin) {
 }
 
 // 为邀请人生成佣金
-async function createCommissionForReferral(orderId, referredUserId, orderAmountCents, adminClient = admin) {
-  // 找到邀请关系
+async function createCommissionForReferral(orderId, referredUserId, order, adminClient = admin) {
+  // 0. 自买不给佣：推广人不能是自己
+  // 1. 套餐不可返佣（如 19.9 体验卡）直接跳过
+  const { data: planRow } = await adminClient
+    .from('plans')
+    .select('commissionable')
+    .eq('code', order.plan_code)
+    .maybeSingle()
+  if (planRow && planRow.commissionable === false) return 'plan_not_commissionable'
+
+  // 2. 找到邀请关系（一个用户只有一个邀请人，注册时冻结）
   const { data: referral } = await adminClient
     .from('referrals')
     .select('referrer_user_id, referral_code_id, id')
     .eq('referred_user_id', referredUserId)
+    .eq('status', 'active')
     .maybeSingle()
-  if (!referral) return
+  if (!referral) return 'no_referral'
 
-  // 返佣比例取决于邀请人的当前订阅：未订阅 10%，季付 15%，年付 20%。
-  // 月付与 3 天体验卡不升级返佣档位，保持基础返佣。
-  const { data: referrerSubscription } = await adminClient
-    .from('subscriptions')
-    .select('plan_code, status, expires_at')
-    .eq('user_id', referral.referrer_user_id)
+  if (referral.referrer_user_id === referredUserId) return 'self_referral'
+
+  // 3. 同一订单只发一次
+  const { data: dup } = await adminClient
+    .from('commissions')
+    .select('id')
+    .eq('order_id', orderId)
     .maybeSingle()
-  const isActiveSubscription = Boolean(
-    referrerSubscription?.status === 'active'
-      && referrerSubscription.expires_at
-      && new Date(referrerSubscription.expires_at) > new Date(),
-  )
-  const commissionRate = isActiveSubscription && referrerSubscription?.plan_code === 'yearly'
-    ? 20
-    : isActiveSubscription && referrerSubscription?.plan_code === 'quarterly'
-      ? 15
-      : 10
+  if (dup) return 'duplicate'
 
-  // 佣金规则表仍保留为结算等待期和后台审计来源。
+  // 4. 费率改为读 commission_rules（后台可配），不再硬编码。
+  //    partner_level 目前还没有落到 profiles 上，统一取 'default'；
+  //    等 migration 加上 profiles.partner_level 后这里换成按人取档。
   const { data: rule } = await adminClient
     .from('commission_rules')
     .select('*')
     .eq('status', 'active')
-    .order('id', { ascending: true })
+    .eq('partner_level', 'default')
+    .order('id', { ascending: false })
     .limit(1)
     .maybeSingle()
 
-  const commissionAmount = Math.round(orderAmountCents * (commissionRate / 100))
-  if (commissionAmount <= 0) return
+  const commissionRate = Number(rule?.rate ?? 0)
+  if (commissionRate <= 0) return 'no_active_rule'
+
+  const commissionAmount = Math.round(order.amount_cents * (commissionRate / 100))
+  if (commissionAmount <= 0) return 'zero_amount'
 
   // 可用时间 = 现在 + hold_days；没有历史规则时仍按 30 天结算。
   const availableAt = new Date()
@@ -698,7 +763,7 @@ async function createCommissionForReferral(orderId, referredUserId, orderAmountC
       referred_user_id: referredUserId,
       order_id: orderId,
       rule_id: rule?.id || null,
-      base_amount: orderAmountCents,
+      base_amount: order.amount_cents,
       commission_rate: commissionRate,
       commission_amount: commissionAmount,
       currency: 'CNY',
@@ -891,6 +956,7 @@ app.get('/account/orders/:orderNo', getAccountOrder)
 app.get('/account/credits', getAccountCredits)
 app.get('/account/credits/history', getAccountCreditsHistory)
 app.get('/account/referral', getAccountReferral)
+app.post('/account/referral/bind', bindReferral)
 app.get('/account/commissions', getAccountCommissions)
 app.get('/account/payouts', getAccountPayouts)
 app.post('/account/payouts', createPayoutRequest)

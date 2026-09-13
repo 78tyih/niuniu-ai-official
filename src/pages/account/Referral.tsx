@@ -22,10 +22,11 @@ interface PayoutData {
 const money = (cents: number) => `¥${(cents / 100).toLocaleString('zh-CN')}`
 const payoutStatus: Record<string, string> = { submitted: '待审核', approved: '已通过', paid: '已付款', rejected: '已拒绝' }
 const payoutStatusClass: Record<string, string> = { submitted: 'bg-[#fff4e8] text-[#b45309]', approved: 'bg-[#eef8f1] text-[#26734d]', paid: 'bg-[#eef4ff] text-[#315b9a]', rejected: 'bg-[#fff1f1] text-[#b94116]' }
+// 费率以 commission_rules 为准（后台可配），这里只做展示，不再硬编码分档逻辑。
+// 分档（Starter / Pro / Elite）上线后这里改成读后台配置。
 const tiers = [
-  { title: '基础返佣', rate: '10%', detail: '未订阅、3 天体验卡与月付用户', active: false },
-  { title: '季付返佣', rate: '15%', detail: '当前有效季付套餐用户', active: false },
-  { title: '年付返佣', rate: '20%', detail: '当前有效年付套餐用户', active: true },
+  { title: '默认推广返佣', rate: '20%', detail: '按订单实付金额计算，后台可调', active: true },
+  { title: '19.9 体验卡', rate: '0%', detail: '体验套餐不产生现金佣金', active: false },
 ]
 
 export default function AccountReferral() {

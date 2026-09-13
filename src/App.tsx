@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router'
 import ScrollToTop from './components/ScrollToTop'
+import ReferralAttribution from './components/ReferralAttribution'
 import Home from './pages/Home'
 import Demo from './pages/Demo'
 import Product from './pages/Product'
@@ -34,6 +35,7 @@ export default function App() {
   return (
     <>
       <ScrollToTop />
+      <ReferralAttribution />
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/demo" element={<Demo />} />
