@@ -43,6 +43,25 @@ const FEATURES = [
   },
 ]
 
+/** MT5 原生能力：全部取自 MT5 真实界面，说明牛牛 AI 建立在 MT5 之上 */
+const MT5_POINTS = [
+  {
+    title: '图表与技术指标',
+    desc: 'MT5 的 K 线、周期与指标原样保留，牛牛 AI 读取后给出分析结论。',
+    img: '/mt5/mt5-indicators-on-chart.png',
+  },
+  {
+    title: '订单与执行',
+    desc: '方案以挂单方式交给 MT5 执行，价位由 MT5 校验，不绕过你的终端。',
+    img: '/mt5/mt5-order-operations.png',
+  },
+  {
+    title: '持仓与账户',
+    desc: '行情、持仓与账户状态从 MT5 一键同步，AI 分析的是你的真实账户。',
+    img: '/mt5/mt5-trade-window.png',
+  },
+]
+
 /** 左图滑动 + 右侧说明（滚动联动，类似富途牛牛的功能展示板块） */
 function Showcase() {
   const [active, setActive] = useState(0)
@@ -194,6 +213,74 @@ export default function Product() {
           </div>
         </div>
       </section>
+
+      {/* 基于 MT5：先讲清它跑在什么之上 */}
+      <Section bordered>
+        <div className="reveal mx-auto max-w-2xl text-center">
+          <div className="text-[11px] font-semibold tracking-[0.08em] text-[#9ca3af]">
+            BUILT FOR MT5
+          </div>
+          <h2 className="mt-2 font-display text-[28px] font-bold leading-tight sm:text-[36px]">
+            它跑在你正在用的 MT5 上
+          </h2>
+          <p className="mx-auto mt-3 max-w-xl text-[15px] leading-relaxed text-[#6b7280]">
+            牛牛 AI 不替换 MT5，而是接入你现有的 MT5 账户——图表、指标、订单与持仓都来自你的 MT5。
+          </p>
+        </div>
+
+        {/* MT5 -> 牛牛 AI */}
+        <div className="reveal mt-10 grid items-center gap-6 lg:grid-cols-[1fr_auto_1fr]">
+          <figure>
+            <img
+              src="/mt5/mt5-charts-candles.png"
+              alt="MT5 的 K 线图表界面"
+              loading="lazy"
+              className="w-full rounded-xl border border-[#e5e7eb] bg-white shadow-[0_18px_44px_-32px_rgba(11,23,36,0.35)]"
+            />
+            <figcaption className="mt-2 text-center text-[13px] text-[#6b7280]">
+              你的 MT5 · K 线与技术指标
+            </figcaption>
+          </figure>
+
+          <div className="hidden justify-center lg:flex">
+            <span className="whitespace-nowrap text-[13px] font-medium text-[#f97316]">
+              接入 →
+            </span>
+          </div>
+
+          <figure>
+            <img
+              src="/screenshots/ai-analysis.jpg"
+              alt="牛牛 AI 的分析与审核界面"
+              loading="lazy"
+              className="w-full rounded-xl border border-[#e5e7eb] bg-white shadow-[0_18px_44px_-32px_rgba(11,23,36,0.35)]"
+            />
+            <figcaption className="mt-2 text-center text-[13px] text-[#6b7280]">
+              牛牛 AI · 分析与审核
+            </figcaption>
+          </figure>
+        </div>
+
+        <div className="mt-12 grid gap-5 sm:grid-cols-3">
+          {MT5_POINTS.map((p) => (
+            <div
+              key={p.title}
+              className="reveal overflow-hidden rounded-xl border border-[#eceae6] bg-white"
+            >
+              <img
+                src={p.img}
+                alt={p.title}
+                loading="lazy"
+                className="aspect-[16/9] w-full border-b border-[#eceae6] object-cover object-top"
+              />
+              <div className="p-4">
+                <div className="font-display text-[15px] font-bold">{p.title}</div>
+                <p className="mt-1 text-[13px] leading-relaxed text-[#6b7280]">{p.desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Section>
 
       {/* 功能展示：左图滑动 + 右侧说明 */}
       <Section bordered>
