@@ -11,6 +11,8 @@ interface Stats {
   ordersTotal: number
   ordersToday: number
   revenueCents: number
+  revenueTodayCents: number
+  paidOrdersToday: number
   usersToday: number
   stockByPlan: Record<string, number>
   outOfStockOrders: { order_no: string; plan_code: string; paid_at: string }[]
@@ -246,10 +248,12 @@ function DashboardTab() {
   if (!stats) return <p className="text-sm text-[#9ca3af]">加载中…</p>
 
   const cards: [string, string][] = [
-    ['今日订单', String(stats.ordersToday)],
-    ['累计订单', String(stats.ordersTotal)],
+    ['今日成交额', fmtPrice(stats.revenueTodayCents ?? 0)],
+    ['今日成交单', String(stats.paidOrdersToday ?? 0)],
     ['累计成交额', fmtPrice(stats.revenueCents)],
     ['今日新增用户', String(stats.usersToday)],
+    ['今日订单', String(stats.ordersToday)],
+    ['累计订单', String(stats.ordersTotal)],
   ]
 
   return (
@@ -341,6 +345,7 @@ function OrdersTab() {
           <option value="">全部状态</option>
           <option value="pending">待支付</option>
           <option value="paid">已支付</option>
+          <option value="cancelled">已取消 / 超时</option>
         </select>
         <select value={delivery} onChange={(e) => { setDelivery(e.target.value); setPage(1) }}
           className="rounded-lg border border-[#e5e7eb] bg-white px-3 py-2 text-sm outline-none">

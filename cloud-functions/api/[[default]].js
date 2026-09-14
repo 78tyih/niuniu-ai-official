@@ -1101,12 +1101,34 @@ app.post('/orders', async (req, res) => {
 async function notifyOrderPaid(orderNo) {
   try {
     const { data: order } = await admin.from('orders')
-      .select('order_no, amount_cents, delivered_code, delivery_status, user_id, plans(name)')
+      .select('order_no, amount_cents, delivered_code, delivery_status, channel, user_id, plans(name)')
       .eq('order_no', orderNo).maybeSingle()
     if (!order) return
     const { data: u } = await admin.auth.admin.getUserById(order.user_id)
     const email = u?.user?.email
     const planName = order.plans?.name || order.order_no
+    const amountText = (order.amount_cents / 100).toLocaleString('zh-CN')
+
+    // 成交即时通知管理员。
+    // 以前只有 delivery_status === 'out_of_stock' 才发邮件 —— 结果是**卖出去了没人知道**，
+    // 只有缺货才会收到信。现在每一笔支付成功都发一封。
+    await sendMail(
+      ADMIN_NOTIFY_EMAIL,
+      `【新订单】${planName} ¥${amountText}`,
+      [
+        `有一笔订单支付成功。`,
+        ``,
+        `套餐：${planName}`,
+        `金额：¥${amountText}`,
+        `渠道：${order.channel || '-'}`,
+        `订单号：${order.order_no}`,
+        `下单人：${email || order.user_id}`,
+        `授权码：${order.delivered_code || '（缺货，需补码）'}`,
+        `发货状态：${order.delivery_status}`,
+        ``,
+        `管理台：https://niuniuai.app/admin`,
+      ].join('\n'),
+    )
     if (email) {
       await sendMail(
         email,
@@ -1285,21 +1307,27 @@ app.get('/admin/stats', async (req, res) => {
   const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0)
   const todayIso = todayStart.toISOString()
 
-  const [ordersAll, ordersToday, paidAgg, usersToday, stock, pendingStock] = await Promise.all([
+  const [ordersAll, ordersToday, paidAgg, paidTodayAgg, usersToday, stock, pendingStock] = await Promise.all([
     admin.from('orders').select('id', { count: 'exact', head: true }),
     admin.from('orders').select('id', { count: 'exact', head: true }).gte('created_at', todayIso),
     admin.from('orders').select('amount_cents').eq('status', 'paid'),
+    // 今日成交按 paid_at 算（不是 created_at）——否则昨天创建、今天付掉的单会漏掉
+    admin.from('orders').select('amount_cents').eq('status', 'paid').gte('paid_at', todayIso),
     admin.from('profiles').select('id', { count: 'exact', head: true }).gte('created_at', todayIso),
     admin.from('card_keys').select('plan_code').eq('status', 'available'),
     admin.from('orders').select('order_no, plan_code, paid_at').eq('delivery_status', 'out_of_stock').order('paid_at', { ascending: false }).limit(20),
   ])
   const revenueCents = (paidAgg.data || []).reduce((s, o) => s + (o.amount_cents || 0), 0)
+  const revenueTodayCents = (paidTodayAgg.data || []).reduce((s, o) => s + (o.amount_cents || 0), 0)
+  const paidOrdersToday = (paidTodayAgg.data || []).length
   const stockByPlan = {}
   for (const k of stock.data || []) stockByPlan[k.plan_code] = (stockByPlan[k.plan_code] || 0) + 1
   res.json({
     ordersTotal: ordersAll.count || 0,
     ordersToday: ordersToday.count || 0,
     revenueCents,
+    revenueTodayCents,
+    paidOrdersToday,
     usersToday: usersToday.count || 0,
     stockByPlan,
     outOfStockOrders: pendingStock.data || [],
