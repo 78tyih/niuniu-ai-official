@@ -222,6 +222,24 @@ export default function Account() {
           <div className="card-light rounded-2xl p-7">
             <h3 className="text-sm font-semibold">联系客服</h3>
             <p className="mt-2 text-xs text-[#9aa0ad]">连接协助、退款开票，都可以直接找我们：</p>
+            <div className="mt-4 flex items-center gap-4 rounded-xl border border-[#eceae6] bg-[#fafaf8] px-4 py-4">
+              <img
+                src="/qr/kefuyuanyuan-qr.png"
+                alt="客服企业微信二维码"
+                className="h-24 w-24 shrink-0 rounded-lg border border-[#eceae6] bg-white object-contain"
+              />
+              <div className="text-xs leading-relaxed text-[#6b7280]">
+                <div className="text-sm font-semibold text-[#111111]">扫码加企业微信</div>
+                <a
+                  href="https://work.weixin.qq.com/u/vcd5b0b3be8bb945b5"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-1.5 inline-block font-medium text-[#f97316] underline underline-offset-4"
+                >
+                  或点此直接添加 →
+                </a>
+              </div>
+            </div>
             <ul className="mt-4 space-y-2.5 text-sm text-[#6b7280]">
               <li>
                 QQ 交流群：<span className="font-mono text-base font-semibold text-[#ff6a1a]">638778129</span>

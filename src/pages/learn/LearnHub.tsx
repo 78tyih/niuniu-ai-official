@@ -19,6 +19,9 @@ import {
 import { UPDATES } from '../../content/updates'
 import { HOME_CHAPTERS as DEMO_CHAPTERS } from '../../lib/chapters'
 
+/** 客服企业微信名片（与 public/qr/kefuyuanyuan-qr.png 是同一个） */
+const CUSTOMER_SERVICE_URL = 'https://work.weixin.qq.com/u/vcd5b0b3be8bb945b5'
+
 export default function LearnHub() {
   useReveal()
   const [filter, setFilter] = useState<'all' | LearningTrack>('all')
@@ -282,22 +285,55 @@ export default function LearnHub() {
               <div className="text-[15px] font-medium">查看常见问题</div>
               <div className="mt-1 text-[13px] text-[#6b7280]">连不上、不开仓、没有数据</div>
             </Link>
-            <a
+            <Link
               id="groups"
-              href="https://niuniuai.app/#contact"
+              to="/community"
               className="rounded-xl border border-[#eceae6] bg-[#fafaf8] px-5 py-4 transition-colors hover:border-[#f97316]"
             >
               <div className="text-[15px] font-medium">加入用户群</div>
               <div className="mt-1 text-[13px] text-[#6b7280]">QQ · 企业微信 · 腾讯频道</div>
-            </a>
+            </Link>
             <a
-              id="contact"
-              href="https://niuniuai.app/#contact"
+              href={CUSTOMER_SERVICE_URL}
+              target="_blank"
+              rel="noreferrer"
               className="rounded-xl border border-[#eceae6] bg-[#fafaf8] px-5 py-4 transition-colors hover:border-[#f97316]"
             >
               <div className="text-[15px] font-medium">联系客服</div>
               <div className="mt-1 text-[13px] text-[#6b7280]">产品与账户问题</div>
             </a>
+          </div>
+
+          {/*
+            之前这里两张卡片都 href 到 https://niuniuai.app/#contact，
+            而首页根本没有 #contact 锚点 —— 全站所有「联系客服」点完都回到首页顶部。
+            现在直接在锚点位置放二维码，扫码即加。
+          */}
+          <div
+            id="contact"
+            className="reveal mt-4 flex flex-col items-start gap-5 rounded-xl border border-[#eceae6] bg-[#fafaf8] px-5 py-5 sm:flex-row sm:items-center"
+          >
+            <img
+              src="/qr/kefuyuanyuan-qr.png"
+              alt="客服企业微信二维码"
+              className="h-28 w-28 shrink-0 rounded-lg border border-[#eceae6] bg-white object-contain"
+            />
+            <div className="text-[13px] leading-relaxed text-[#6b7280]">
+              <div className="text-[15px] font-medium text-[#111111]">扫码加企业微信</div>
+              <div className="mt-2">
+                连接协助 · 授权码问题 · 退款开票
+                <a
+                  href={CUSTOMER_SERVICE_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="ml-2 font-medium text-[#f97316] underline underline-offset-4"
+                >
+                  或点此直接添加 →
+                </a>
+              </div>
+              <div className="mt-2">QQ 交流群 638778129（搜索群号即可加入）</div>
+              <div className="mt-1">服务时间 9:00 – 18:00</div>
+            </div>
           </div>
         </div>
       </section>
