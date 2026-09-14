@@ -45,6 +45,10 @@ const ZPAY_KEY = process.env.ZPAY_KEY || ''
 const ZPAY_GATEWAY = (process.env.ZPAY_GATEWAY || 'https://zpayz.cn').replace(/\/+$/, '')
 const zpayEnabled = Boolean(ZPAY_PID && ZPAY_KEY)
 
+// 未支付订单的有效期（分钟）。超时后在下一次下单时惰性作废——
+// 不引定时任务，逻辑跟佣金到期结转是同一套思路。
+const ORDER_TTL_MINUTES = 20
+
 // ZPay 经典 MD5 签名：参数按 key 升序拼 k=v&...，末尾直接拼密钥，排除 sign/sign_type/空值
 function zpaySign(params) {
   const str = Object.keys(params)
@@ -986,14 +990,26 @@ app.post('/orders', async (req, res) => {
   if (!plan) return res.status(404).json({ error: 'plan_not_found' })
 
   // 3 天体验卡是一次性新客权益：同一账户只允许创建一次未取消订单。
-  // 这条校验必须在后端执行，不能只依赖价格页按钮状态，否则用户可直接调用接口重复购买。
+  // 0. 先把该用户**已过期**的未支付订单作废。
+  //    在此之前没有任何超时机制：一笔点了没付的订单会永远挂在 pending，
+  //    而下面的资格校验又把它当成"买过了"，结果用户再也下不了单。
+  await admin
+    .from('orders')
+    .update({ status: 'cancelled' })
+    .eq('user_id', user.id)
+    .eq('status', 'pending')
+    .lt('created_at', new Date(Date.now() - ORDER_TTL_MINUTES * 60000).toISOString())
+
+  // 1. 3 天体验卡是一次性新客权益：**只有已支付（paid）才算真买过**。
+  //    这里以前用 neq('status','cancelled')，把未支付的 pending 也算成已购买 —— 就是这个 bug。
+  //    校验必须在后端执行，不能只依赖价格页按钮状态，否则用户可直接调用接口重复购买。
   if (plan.interval === 'days3' || plan.code === 'days3') {
     const { data: previousTrial, error: trialLookupError } = await admin
       .from('orders')
-      .select('order_no, status, created_at')
+      .select('order_no')
       .eq('user_id', user.id)
       .eq('plan_code', plan.code)
-      .neq('status', 'cancelled')
+      .eq('status', 'paid')
       .limit(1)
       .maybeSingle()
     if (trialLookupError) {
@@ -1009,11 +1025,32 @@ app.post('/orders', async (req, res) => {
     }
   }
 
-  const orderNo = 'NN' + Date.now() + randomBytes(3).toString('hex').toUpperCase()
-  const { error } = await admin.from('orders').insert({
-    order_no: orderNo, user_id: user.id, plan_code: plan.code, amount_cents: plan.price_cents, channel,
-  })
-  if (error) return res.status(500).json({ error: 'db_error', message: error.message })
+  // 2. 同一套餐若已有**未过期**的待支付订单，复用它而不是新建。
+  //    用户关掉收银台再点一次购买，拿到的是同一个订单号 —— 不会堆一堆 pending 记录，
+  //    也不会被"已存在订单"拦住。zpay 允许同一 out_trade_no 重复提交（实测两次都返回收银台）。
+  const { data: pendingOrder } = await admin
+    .from('orders')
+    .select('order_no, channel')
+    .eq('user_id', user.id)
+    .eq('plan_code', plan.code)
+    .eq('status', 'pending')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  let orderNo
+  if (pendingOrder) {
+    orderNo = pendingOrder.order_no
+    if (pendingOrder.channel !== channel) {
+      await admin.from('orders').update({ channel }).eq('order_no', orderNo)
+    }
+  } else {
+    orderNo = 'NN' + Date.now() + randomBytes(3).toString('hex').toUpperCase()
+    const { error } = await admin.from('orders').insert({
+      order_no: orderNo, user_id: user.id, plan_code: plan.code, amount_cents: plan.price_cents, channel,
+    })
+    if (error) return res.status(500).json({ error: 'db_error', message: error.message })
+  }
 
   if (channel === 'stripe') {
     if (!stripe) return res.json({ orderNo, channel, mode: 'demo', message: '未配置 STRIPE_SECRET_KEY，已进入演示支付模式' })
