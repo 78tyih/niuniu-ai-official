@@ -2,6 +2,8 @@
 
 连接 MT5 的 AI 交易助手官网：产品落地页 + 用户注册登录 + 订阅定价 + 支付。
 
+**在线：** [产品官网 niuniuai.app](https://niuniuai.app) · [交互展示页](https://78tyih.github.io/niuniu-ai-official/showcase.html)（功能视频 ×10 在线播放 + 场景导览 + 架构拆解）
+
 ## 功能
 
 - 落地页：Hero / 痛点 / 三层 AI 工作流 / 六步流程 / 真实界面 / FAQ / 风险声明
@@ -55,3 +57,14 @@ PUBLIC_BASE_URL
 ## 合规
 
 页面文案遵循「无收益承诺、风险可见」原则；价格与牛气值规则以上线前厂家确认为准。
+
+## 四问速览
+
+| 问 | 答 |
+|---|---|
+| **解决什么问题** | 给 MT5 交易者一个开箱即用的 AI 辅助层（连接 → 助手 → 分析 → 复盘）；同时给开发者一套「订阅制 AI 产品」的完整参考实现——落地页、Auth、定价、支付、合规文案一次配齐 |
+| **什么场景 → 什么结果** | 交易者：注册 → 连接 MT5 → AI 助手/分析/复盘，订阅后解锁完整功能。开发者：clone 下来改环境变量即可得到一套可上线的订阅付费产品骨架 |
+| **什么结构** | React+Vite+Tailwind 前端 → Supabase（Auth + Postgres，`supabase/schema.sql` 建库）→ 服务端逻辑双版本同源（Vercel Functions `api/` 与 EdgeOne 云函数 `cloud-functions/`）→ Stripe Checkout + 入账 RPC `mark_order_paid` → Zeabur Docker 部署 |
+| **能复用什么** | ① 订阅定价页 + 支付回调入账闭环（`mark_order_paid` RPC 模式）；② Supabase Auth 邮箱注册/手机绑定/密码重置全流程；③ 「无收益承诺、风险可见」的合规文案结构；④ 双云函数（Vercel/EdgeOne）同源逻辑的部署形态 |
+
+> 风险声明：本产品与页面不构成投资建议，无收益承诺；交易有风险。价格以 [niuniuai.app](https://niuniuai.app) 实时页面为准。

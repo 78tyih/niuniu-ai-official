@@ -1,0 +1,36 @@
+{
+  "slug": "niuniu-ai-official",
+  "type": "commercial-product + full-stack-reference",
+  "archetype": "media-showcase",
+  "oneLiner": {
+    "zh": "连接 MT5 的 AI 交易助手（niuniuai.app）：订阅制产品，同时是一套可抄走的订阅制全栈参考实现",
+    "en": "An MT5 AI trading assistant (niuniuai.app) — a subscription product that doubles as a forkable full-stack reference"
+  },
+  "audience": {
+    "zh": "① MT5 交易者；② 要上线订阅制 AI 产品的全栈开发者",
+    "en": "MT5 traders; full-stack devs launching subscription AI products"
+  },
+  "facts": {
+    "frontend": "React + Vite + Tailwind",
+    "auth": "Supabase (email/phone/reset), schema in supabase/schema.sql",
+    "serverLogic": "dual same-source: api/ (Vercel Functions) + cloud-functions/api/ (EdgeOne)",
+    "payment": "Stripe Checkout (test) + WeChat/Alipay demo; settlement RPC mark_order_paid",
+    "deploy": "Zeabur Docker (node:22 multi-stage), auto-deploy on main, serves dist/ + /api on 8080",
+    "plansPerReadme": {"trial3d": "¥19.9", "monthly": "¥980", "quarterly": "¥2,018", "yearly": "¥6,980"},
+    "media": {"screenshots": 11, "videos": 10, "videoLength": "6-8s each"}
+  },
+  "links": {
+    "product": "https://niuniuai.app",
+    "showcase": "https://78tyih.github.io/niuniu-ai-official/showcase.html",
+    "repo": "https://github.com/78tyih/niuniu-ai-official"
+  },
+  "evidence": {
+    "stackAndDeploy": "Observed — README + Dockerfile + server/ + edgeone.json in repo",
+    "mediaFiles": "Observed — public/screenshots (11 jpg) + public/videos (10 mp4, ffprobe 6-8s)",
+    "liveProduct": "Unknown-to-verify-here — niuniuai.app is production (Zeabur); not probed beyond README claims",
+    "featureDescriptions": "Inferred — feature names/descriptions derived from media filenames; product copy governs",
+    "paymentEndToEnd": "Inferred — Stripe in test mode per README; no live transaction exercised",
+    "complianceCopy": "Observed — README 合规节 states 无收益承诺、风险可见 principle"
+  },
+  "updated": "2026-10-05"
+}

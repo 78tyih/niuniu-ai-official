@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light" data-lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>牛牛AI — MT5 AI 交易助手 · 交互展示</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#F7F8FA; --panel:#FFFFFF; --ink:#151A21; --ink2:#59616E; --ink3:#8B93A1;
+  --hairline:rgba(21,26,33,.13); --accent:#E8590C; --accent2:#4D6BFE; --accent-soft:rgba(232,89,12,.08);
+  --ok:#2F9E6E; --warn:#C77E28;
+  --font-body:"Inter","Noto Sans SC",system-ui,sans-serif; --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+html[data-theme="dark"]{
+  --paper:#101318; --panel:#181D26; --ink:#E9ECF1; --ink2:#A2AAB8; --ink3:#5F6875;
+  --hairline:rgba(233,236,241,.14); --accent:#FF7A33; --accent-soft:rgba(255,122,51,.11);
+}
+*{box-sizing:border-box} html{scroll-behavior:smooth}
+body{background:var(--paper);color:var(--ink);font-family:var(--font-body);margin:0;line-height:1.65;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1160px;margin:0 auto;padding:0 34px}
+.en{display:none} html[data-lang="en"] .en{display:inline} html[data-lang="en"] .zh{display:none}
+header{position:sticky;top:0;z-index:50;background:color-mix(in srgb,var(--paper) 90%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--hairline)}
+.hd{display:flex;align-items:center;justify-content:space-between;padding:14px 34px;max-width:1160px;margin:0 auto}
+.logo{font-weight:700;font-size:17px;text-decoration:none}.logo b{color:var(--accent)}
+.hd-right{display:flex;gap:8px;align-items:center}
+.tgl{border:1px solid var(--hairline);background:transparent;color:var(--ink2);border-radius:999px;padding:5px 13px;font-size:12px;font-weight:500;cursor:pointer;font-family:var(--font-body)}
+.tgl:hover{color:var(--ink);border-color:var(--ink3)} .tgl.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.hero{padding:76px 0 56px;border-bottom:1px solid var(--hairline)}
+.kicker{display:flex;align-items:center;gap:14px;font-size:12px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+.kicker::before{content:"";width:34px;height:1px;background:var(--accent)}
+h1{font-size:clamp(2.2rem,4.8vw,3.6rem);line-height:1.12;letter-spacing:-.02em;font-weight:700;margin:22px 0 0;max-width:24ch}
+h1 em{font-style:normal;color:var(--accent)}
+.sub{max-width:66ch;color:var(--ink2);font-size:15.5px;margin:20px 0 0}
+.chips{display:flex;flex-wrap:wrap;gap:9px;margin-top:26px}
+.chip{border:1px solid var(--hairline);border-radius:999px;padding:6px 14px;font-size:12.5px;color:var(--ink2);background:var(--panel)}
+.chip b{color:var(--accent);font-weight:600}
+.cta{display:flex;gap:13px;margin-top:30px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:11px 23px;border-radius:999px;font-size:13.5px;font-weight:500;text-decoration:none;border:1px solid var(--hairline);background:transparent;color:var(--ink);transition:all .15s ease}
+.btn--accent{background:var(--accent);border-color:var(--accent);color:#fff}.btn--accent:hover{opacity:.88}
+.btn:hover{border-color:var(--ink3)}
+section{padding:64px 0;border-bottom:1px solid var(--hairline)}
+.sec-no{font-size:12px;letter-spacing:.16em;color:var(--accent);font-weight:700;font-family:var(--mono)}
+h2{font-size:clamp(1.45rem,2.6vw,2rem);letter-spacing:-.02em;font-weight:700;margin:8px 0 0}
+.sec-head{margin-bottom:30px}.sec-sub{color:var(--ink2);font-size:14px;margin-top:10px;max-width:64ch}
+
+/* tabs & panels */
+.sc-tabs{display:flex;flex-wrap:wrap;gap:9px;margin-bottom:0}
+.sc-tab{border:1px solid var(--hairline);border-bottom:0;background:var(--panel);color:var(--ink2);border-radius:12px 12px 0 0;padding:12px 18px;font-size:13.5px;font-weight:600;cursor:pointer;font-family:var(--font-body);text-align:left}
+.sc-tab small{display:block;font-size:11px;color:var(--ink3);margin-top:2px;font-weight:400}
+.sc-tab.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.sc-tab.on small{color:rgba(255,255,255,.78)}
+.sc-panel{border:1px solid var(--hairline);border-radius:0 18px 18px 18px;background:var(--panel);padding:28px 32px 30px}
+@media(max-width:700px){.sc-panel{padding:22px 20px}}
+.sc-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:28px}
+@media(max-width:880px){.sc-grid{grid-template-columns:1fr}}
+.sc-situations h4{font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink3);margin:0 0 10px}
+.sc-item{display:flex;gap:12px;padding:10px 0;border-bottom:1px dashed var(--hairline);font-size:14px;color:var(--ink2)}
+.sc-item:last-child{border-bottom:0}
+.sc-item i{font-style:normal;color:var(--accent);font-family:var(--mono);font-size:11px;padding-top:3px;min-width:20px}
+.vs{display:flex;flex-direction:column;gap:13px}
+.vs-card{border-radius:14px;padding:16px 19px;font-size:13.5px;line-height:1.7}
+.vs-card b{display:block;font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;margin-bottom:7px}
+.vs-no{background:color-mix(in srgb,var(--warn) 9%,transparent);border:1px solid color-mix(in srgb,var(--warn) 35%,transparent);color:var(--ink2)} .vs-no b{color:var(--warn)}
+.vs-yes{background:color-mix(in srgb,var(--ok) 9%,transparent);border:1px solid color-mix(in srgb,var(--ok) 35%,transparent);color:var(--ink2)} .vs-yes b{color:var(--ok)}
+
+/* feature videos */
+.fv-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:20px}
+@media(max-width:880px){.fv-grid{grid-template-columns:1fr}}
+.fv{border:1px solid var(--hairline);border-radius:16px;background:var(--panel);overflow:hidden}
+.fv video{width:100%;aspect-ratio:16/9;object-fit:cover;display:block;background:#0b0d10}
+.fv-body{padding:14px 17px 16px;display:flex;justify-content:space-between;gap:12px;align-items:baseline}
+.fv-name{font-weight:600;font-size:14.5px}
+.fv-desc{font-size:12.5px;color:var(--ink3);margin-top:2px}
+.fv-tag{font-family:var(--mono);font-size:10.5px;color:var(--accent);white-space:nowrap}
+
+/* architecture */
+.arch{display:flex;flex-direction:column;gap:12px}
+.layer{display:grid;grid-template-columns:170px 1fr;gap:18px;border:1px solid var(--hairline);border-radius:14px;background:var(--panel);padding:16px 20px;align-items:baseline}
+@media(max-width:760px){.layer{grid-template-columns:1fr;gap:6px}}
+.layer b{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3);font-family:var(--mono)}
+.layer div{font-size:14px;color:var(--ink2)} .layer div code{font-family:var(--mono);font-size:12px;background:var(--accent-soft);color:var(--accent);padding:2px 7px;border-radius:6px}
+
+/* pricing */
+.pr-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+@media(max-width:880px){.pr-grid{grid-template-columns:repeat(2,1fr)}}
+.pr{border:1px solid var(--hairline);border-radius:16px;background:var(--panel);padding:22px 22px 24px}
+.pr-feat{font-size:12px;color:var(--ink3);letter-spacing:.08em;text-transform:uppercase}
+.pr-price{font-size:26px;font-weight:700;margin-top:8px}
+.pr-price small{font-size:12px;color:var(--ink3);font-weight:400}
+.pr-note{font-size:12px;color:var(--ink2);margin-top:8px}
+
+/* four questions */
+.q{display:grid;grid-template-columns:150px 1fr;gap:24px;padding:22px 0;border-top:1px solid var(--hairline)}
+.q:first-of-type{border-top:0}
+@media(max-width:820px){.q{grid-template-columns:1fr;gap:8px}}
+.q-t{font-weight:700;font-size:15px}
+.q-t span{display:block;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink3);margin-top:4px;font-weight:500}
+.q-b{color:var(--ink2);font-size:14.5px} .q-b b{color:var(--ink)}
+footer{padding:38px 0 54px;color:var(--ink3);font-size:12.5px}
+.fm{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
+.risk{margin-top:14px;padding-top:14px;border-top:1px solid var(--hairline);font-size:12px;color:var(--ink3);max-width:80ch}
+</style>
+</head>
+<body>
+<header><div class="hd">
+  <a class="logo" href="#">牛牛<b>AI</b> <span style="font-size:12px;color:var(--ink3);font-weight:400">MT5 AI 交易助手</span></a>
+  <div class="hd-right">
+    <button class="tgl on" id="lang-zh" onclick="setLang('zh')">中</button>
+    <button class="tgl" id="lang-en" onclick="setLang('en')">EN</button>
+    <button class="tgl on" id="th-light" onclick="setTheme('light')">☀︎</button>
+    <button class="tgl" id="th-dark" onclick="setTheme('dark')">☾</button>
+  </div>
+</div></header>
+
+<div class="wrap">
+<section class="hero">
+  <div class="kicker">NIUNIU AI · MT5 ASSISTANT <span style="color:var(--ink3)">·</span> <span class="zh">订阅制产品 + 全栈参考实现</span><span class="en">subscription product + full-stack reference</span></div>
+  <h1><span class="zh">连接 MT5 的 AI 交易助手，<br>以及一套<em>能抄走的</em>订阅制全栈实现</span><span class="en">An AI assistant for MT5 traders —<br>and a <em>forkable</em> subscription-product stack</span></h1>
+  <p class="sub"><span class="zh">这个仓库有两层身份：对交易者，它是 niuniuai.app——连接 MT5 后提供 AI 助手、行情分析、持仓诊断与交易复盘；对开发者，它是一套完整的订阅制 AI 产品参考实现——落地页、Supabase 认证、三档订阅、Stripe 收单与入账闭环、合规文案，全部在仓。</span>
+  <span class="en">Two identities: for traders, it's niuniuai.app — AI assistant, market analysis, position diagnosis and review on top of MT5; for developers, it's a complete subscription-AI reference — landing, Supabase auth, pricing, Stripe checkout with settlement RPC, compliance copy, all in-repo.</span></p>
+  <div class="chips">
+    <span class="chip"><b>10</b> <span class="zh">段功能实拍视频</span><span class="en">feature videos</span></span>
+    <span class="chip">Supabase Auth</span>
+    <span class="chip">Stripe + <span class="zh">微信/支付宝</span><span class="en">WeChat/Alipay</span></span>
+    <span class="chip">Vercel / EdgeOne <span class="zh">双云函数</span><span class="en">dual functions</span></span>
+    <span class="chip">Zeabur <span class="zh">生产部署</span><span class="en">production</span></span>
+  </div>
+  <div class="cta">
+    <a class="btn btn--accent" href="https://niuniuai.app" target="_blank"><span class="zh">打开产品官网 ↗</span><span class="en">Open the product ↗</span></a>
+    <a class="btn" href="https://github.com/78tyih/niuniu-ai-official">GitHub</a>
+  </div>
+</section>
+
+<section id="when">
+  <div class="sec-head">
+    <div class="sec-no">01 · WHEN TO USE</div>
+    <h2><span class="zh">什么时候需要它</span><span class="en">When you need this</span></h2>
+    <p class="sec-sub"><span class="zh">两类人，两种用法——先对号入座。</span><span class="en">Two audiences, two ways in.</span></p>
+  </div>
+  <div class="sc-tabs" id="sc-tabs"></div>
+  <div class="sc-panel" id="sc-panel"></div>
+</section>
+
+<section id="features">
+  <div class="sec-head">
+    <div class="sec-no">02 · PRODUCT FEATURES</div>
+    <h2><span class="zh">十个功能，实拍视频在线播放</span><span class="en">Ten features, real screen recordings</span></h2>
+    <p class="sec-sub"><span class="zh">以下视频与截图均来自产品真实界面（仓库 public/ 目录原文件），点击播放。</span><span class="en">All recordings come from the real product UI (repo public/ assets). Click to play.</span></p>
+  </div>
+  <div class="fv-grid" id="fv-grid"></div>
+</section>
+
+<section id="arch">
+  <div class="sec-head">
+    <div class="sec-no">03 · ARCHITECTURE</div>
+    <h2><span class="zh">五层架构，双云函数同源</span><span class="en">Five layers, dual cloud functions</span></h2>
+  </div>
+  <div class="arch">
+    <div class="layer"><b>Frontend</b><div>React + Vite + Tailwind（<code>src/</code>），落地页 / 定价 / 账户 / 社区 / 学习中心多页路由</div></div>
+    <div class="layer"><b>Auth & DB</b><div>Supabase：邮箱注册登录、手机号绑定、密码重置；建库脚本 <code>supabase/schema.sql</code></div></div>
+    <div class="layer"><b>Server Logic</b><div>双版本同源逻辑：<code>api/</code>（Vercel Functions）与 <code>cloud-functions/api/</code>（EdgeOne Pages 云函数，Express 导出）</div></div>
+    <div class="layer"><b>Payment</b><div>Stripe Checkout（test 模式）+ 微信/支付宝演示收银台；入账走 RPC <code>mark_order_paid</code></div></div>
+    <div class="layer"><b>Deploy</b><div>Zeabur Docker 多阶段构建（node:22 → node:22-slim），<code>node server/zeabur.mjs</code> 同托管 <code>dist/</code> 与 <code>/api</code>，main 分支自动部署</div></div>
+  </div>
+</section>
+
+<section id="pricing">
+  <div class="sec-head">
+    <div class="sec-no">04 · PRICING</div>
+    <h2><span class="zh">订阅档位</span><span class="en">Plans</span></h2>
+    <p class="sec-sub"><span class="zh">README 口径（官方直营价）；以 niuniuai.app 实时页面为准。</span><span class="en">Per README; live page prevails.</span></p>
+  </div>
+  <div class="pr-grid">
+    <div class="pr"><div class="pr-feat"><span class="zh">3 天体验卡</span><span class="en">3-day trial</span></div><div class="pr-price">¥19.9</div><div class="pr-note"><span class="zh">先试再订</span><span class="en">try before you subscribe</span></div></div>
+    <div class="pr"><div class="pr-feat"><span class="zh">月卡</span><span class="en">Monthly</span></div><div class="pr-price">¥980</div><div class="pr-note">—</div></div>
+    <div class="pr"><div class="pr-feat"><span class="zh">季卡</span><span class="en">Quarterly</span></div><div class="pr-price">¥2,018</div><div class="pr-note">—</div></div>
+    <div class="pr"><div class="pr-feat"><span class="zh">年卡</span><span class="en">Yearly</span></div><div class="pr-price">¥6,980</div><div class="pr-note">—</div></div>
+  </div>
+</section>
+
+<section id="why">
+  <div class="sec-head"><div class="sec-no">05 · FOUR QUESTIONS</div><h2><span class="zh">四问速览</span><span class="en">Four questions</span></h2></div>
+  <div class="q">
+    <div class="q-t"><span class="zh">解决什么问题</span><span class="en">Problem</span></div>
+    <div class="q-b"><span class="zh">给 MT5 交易者一个开箱即用的 AI 辅助层（连接 → 助手 → 分析 → 复盘）；同时给开发者一套订阅制 AI 产品的完整参考实现——落地页、Auth、定价、支付、合规文案一次配齐。</span><span class="en">An out-of-box AI layer for MT5 traders — and a complete subscription-product reference for builders.</span></div>
+  </div>
+  <div class="q">
+    <div class="q-t"><span class="zh">什么场景，什么结果</span><span class="en">Scenario → Outcome</span></div>
+    <div class="q-b"><span class="zh">交易者：注册 → 连接 MT5 → AI 助手/分析/诊断/复盘，订阅解锁完整功能。开发者：clone + 环境变量 → 一套可上线的订阅付费产品骨架。</span><span class="en">Traders: sign up → connect MT5 → assistant/analysis/review. Builders: clone + env vars → a shippable paid-product skeleton.</span></div>
+  </div>
+  <div class="q">
+    <div class="q-t"><span class="zh">什么结构</span><span class="en">Architecture</span></div>
+    <div class="q-b"><span class="zh">见上方五层架构。要点：服务端逻辑在 Vercel Functions 与 EdgeOne 云函数双版本同源，国内海外各有部署路径；入账以 <code style="font-family:var(--mono)">mark_order_paid</code> RPC 收口。</span><span class="en">See the five layers above; dual cloud functions keep domestic & global deploy paths from one logic source.</span></div>
+  </div>
+  <div class="q">
+    <div class="q-t"><span class="zh">能复用什么</span><span class="en">Value & Reuse</span></div>
+    <div class="q-b"><span class="zh">① Stripe 订阅 + 回调入账闭环（RPC 模式）；② Supabase Auth 全流程（邮箱/手机/重置）；③ 「无收益承诺、风险可见」的合规文案结构；④ 双云函数部署形态。</span><span class="en">Stripe checkout + settlement RPC; full Supabase auth flows; compliance copy structure; dual-function deploy shape.</span></div>
+  </div>
+</section>
+
+<footer><div class="fm">
+  <div><b style="color:var(--ink2)"><span class="zh">牛牛AI</span><span class="en">Niuniu AI</span></b> · niuniuai.app · <span class="zh">仓库公开，服务端密钥只放运行时环境变量</span><span class="en">public repo; server secrets live in runtime env only</span></div>
+  <div><span class="zh">素材来源：仓库 public/ 实拍（Observed）</span><span class="en">Media: repo public/ recordings (Observed)</span></div>
+</div>
+<div class="risk"><span class="zh">风险声明：本页与产品不构成任何投资建议，不作任何收益承诺；交易（尤其外汇/CFD）有高风险，可能损失全部本金。订阅前请阅读官网完整条款。</span><span class="en">Risk disclosure: nothing here is investment advice; no profit guarantees. Trading (esp. FX/CFD) is high-risk. Read full terms on the official site before subscribing.</span></div>
+</footer>
+</div>
+
+<script>
+const CDN="https://cdn.jsdelivr.net/gh/78tyih/niuniu-ai-official@main/public/";
+const SCEN=[
+ {tab:{zh:"我是 MT5 交易者",en:"I'm an MT5 trader"},sub:{zh:"要的是省时间的辅助层",en:"want a time-saving layer"},
+  sit:{zh:["同时盯多个品种盯不过来，想要 AI 帮忙看","每笔交易该复盘但懒得整理日志","想用自然语言问行情和持仓，而不是翻一堆指标","想按自己的分析风格定制 AI 的输出"],en:["Watching multiple symbols at once — want AI eyes on them","Reviews should happen but trade journals never get written","Prefer asking about price/positions in plain language","Want the AI to analyze in your own style"]},
+  before:{zh:"手动盯盘 + 零散工具拼凑：行情一个 App、日志一个表、复盘靠记忆",en:"Manual watching plus scattered tools; reviews run on memory"},
+  after:{zh:"连接 MT5 后一个工作台覆盖：助手问答、行情分析、多品种监控、持仓诊断、复盘与日志，输出风格可自定义",en:"One workspace over MT5: assistant, analysis, multi-symbol watch, diagnosis, review & logs — style customizable"}},
+ {tab:{zh:"我是全栈开发者",en:"I'm a full-stack dev"},sub:{zh:"要的是能抄的产品骨架",en:"want a forkable skeleton"},
+  sit:{zh:["想上线一个订阅制 AI 产品，不想从零搭 Auth + 定价 + 支付","要给产品加 Stripe 订阅和可靠的入账闭环","需要国内可部署路径（EdgeOne 云函数），海外走 Vercel","合规文案没把握：无收益承诺、风险可见怎么写"],en:["Launching a subscription AI product without wiring auth+pricing+payments from scratch","Need Stripe subscriptions with a reliable settlement loop","Need a domestic deploy path (EdgeOne) alongside Vercel","Unsure how to write compliant no-promises copy"]},
+  before:{zh:"从零拼胶水代码：Auth、回调、对账、退款、文案，每一步都是新坑，数周起步",en:"Glue code from zero: auth, webhooks, reconciliation, refunds, copy — weeks of new pits"},
+  after:{zh:"clone 本仓库 + 配环境变量：Supabase Auth 全流程、Stripe Checkout + mark_order_paid 入账 RPC、双云函数同源逻辑、合规文案结构，全部现成",en:"Clone + env vars: full Supabase auth, Stripe + settlement RPC, dual cloud functions, compliance copy — all in-repo"}}
+];
+const FEATURES=[
+ {f:"connect-mt5",zh:"连接 MT5",en:"Connect MT5",d:{zh:"接入你的 MT5 账户，第一步",en:"Link your MT5 account — step one"}},
+ {f:"ai-assistant",zh:"AI 助手",en:"AI Assistant",d:{zh:"对话式交易助手",en:"Conversational trading assistant"}},
+ {f:"ai-analysis",zh:"AI 分析",en:"AI Analysis",d:{zh:"行情与标的解析",en:"Market & symbol analysis"}},
+ {f:"multi-symbol",zh:"多品种监控",en:"Multi-Symbol",d:{zh:"多品种并行监控",en:"Parallel symbol watch"}},
+ {f:"position-diagnosis",zh:"持仓诊断",en:"Position Diagnosis",d:{zh:"当前持仓体检",en:"Health-check open positions"}},
+ {f:"ai-review",zh:"AI 复盘",en:"AI Review",d:{zh:"交易行为复盘",en:"Review your trading behavior"}},
+ {f:"ai-replay",zh:"回放",en:"Replay",d:{zh:"交易过程回放",en:"Replay the trade"}},
+ {f:"ai-log",zh:"交易日志",en:"Trade Log",d:{zh:"记录自动归整",en:"Records, auto-organized"}},
+ {f:"custom-prompt",zh:"自定义 Prompt",en:"Custom Prompt",d:{zh:"按你的风格出分析",en:"Analysis in your own style"}},
+ {f:"ai-layout",zh:"工作台布局",en:"Workspace Layout",d:{zh:"界面与信息组织",en:"UI & information layout"}}
+];
+const lang=()=>document.documentElement.dataset.lang;
+const L=o=>o[lang()];
+function setLang(l){document.documentElement.dataset.lang=l;localStorage.setItem("nn-lang",l);
+ document.getElementById("lang-zh").classList.toggle("on",l==="zh");
+ document.getElementById("lang-en").classList.toggle("on",l==="en");renderScen();renderFv();}
+function setTheme(t){document.documentElement.dataset.theme=t;localStorage.setItem("nn-theme",t);
+ document.getElementById("th-light").classList.toggle("on",t==="light");
+ document.getElementById("th-dark").classList.toggle("on",t==="dark");}
+let curScen=0;
+function renderScen(){
+ document.getElementById("sc-tabs").innerHTML=SCEN.map((s,i)=>`<button class="sc-tab${i===curScen?" on":""}" onclick="pickScen(${i})">${L(s.tab)}<small>${L(s.sub)}</small></button>`).join("");
+ const s=SCEN[curScen];
+ document.getElementById("sc-panel").innerHTML=`<div class="sc-grid">
+  <div class="sc-situations"><h4><span class="zh">这些情况，对号入座</span><span class="en">See yourself here?</span></h4>
+   ${L(s.sit).map((x,i)=>`<div class="sc-item"><i>${String(i+1).padStart(2,"0")}</i><span>${x}</span></div>`).join("")}</div>
+  <div class="vs">
+   <div class="vs-card vs-no"><b><span class="zh">没有它</span><span class="en">Without</span></b>${L(s.before)}</div>
+   <div class="vs-card vs-yes"><b><span class="zh">有了之后</span><span class="en">With it</span></b>${L(s.after)}</div>
+  </div></div>`;
+}
+function pickScen(i){curScen=i;renderScen();}
+function renderFv(){
+ document.getElementById("fv-grid").innerHTML=FEATURES.map(f=>`
+  <div class="fv">
+    <video controls preload="metadata" poster="${CDN}screenshots/${f.f}.jpg"><source src="${CDN}videos/${f.f}.mp4" type="video/mp4"></video>
+    <div class="fv-body"><div><div class="fv-name">${f[lang()]}</div><div class="fv-desc">${L(f.d)}</div></div><span class="fv-tag">mp4 · 6–8s</span></div>
+  </div>`).join("");
+}
+(function boot(){
+ const q=new URLSearchParams(location.search);
+ setTheme(q.get("theme")||localStorage.getItem("nn-theme")||"light");
+ setLang(q.get("lang")||localStorage.getItem("nn-lang")||(navigator.language.startsWith("zh")?"zh":"en"));
+})();
+</script>
+</body>
+</html>
