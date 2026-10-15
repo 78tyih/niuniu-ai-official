@@ -19,6 +19,18 @@ const SUPABASE_URL = process.env.SUPABASE_URL
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || ''
 const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL || ''
+/**
+ * 健康详情的访问令牌。未配置时 /__health 永不出详情。
+ * 用法：在部署平台环境变量里设 HEALTH_TOKEN，然后访问 /api/__health?k=<token>
+ */
+const HEALTH_TOKEN = process.env.HEALTH_TOKEN || ''
+/** 发布标识：用于确认线上跑的是哪个 commit（Zeabur 会注入 ZEABUR_GIT_COMMIT_SHA） */
+const RELEASE_SHA =
+  process.env.ZEABUR_GIT_COMMIT_SHA ||
+  process.env.GIT_COMMIT_SHA ||
+  process.env.VERCEL_GIT_COMMIT_SHA ||
+  process.env.RELEASE_SHA ||
+  null
 
 // 所有出站请求带 10s 超时，避免平台 30s 才兜底返回 504
 // User-Agent 是必需的：部分上游（如 Resend）会对缺失该头的请求直接返回 403
@@ -254,6 +266,8 @@ async function getAccountSubscription(req, res) {
 async function getAccountOrders(req, res) {
   const user = await requireUser(req, res)
   if (!user) return
+  // 本人订单属于隐私数据：禁止 CDN / 浏览器 / 中间层缓存
+  res.set('Cache-Control', 'private, no-store, max-age=0')
   const page = Math.max(1, parseInt(req.query.page || 1))
   const size = Math.max(1, parseInt(req.query.size || 20))
   try {
@@ -283,9 +297,11 @@ async function getAccountOrder(req, res) {
   if (!user) return
   const { orderNo } = req.params
   try {
+    // 字段白名单：不回 delivered_code。授权码只能走发货流程，不能从查询接口取。
+    // user_id 只认 token 校验出来的 user.id，不接受任何请求参数。
     const { data: order } = await admin
       .from('orders')
-      .select('*, plans(name)')
+      .select('order_no, plan_code, amount_cents, channel, status, delivery_status, created_at, paid_at, expires_at, plans(name)')
       .eq('order_no', orderNo)
       .eq('user_id', user.id)
       .maybeSingle()
@@ -838,9 +854,17 @@ async function audit(adminId, action, detail = {}) {
 app.get('/', (_req, res) => res.json({ name: '牛牛AI API', ok: true }))
 
 // 部署自检：只暴露布尔与耗时，不泄露任何密钥
-app.get('/__health', async (_req, res) => {
+// 部署自检。
+// 默认只回 {ok, release}——env 配置地图（谁家支付、哪些 key 已配）是给攻击者的免费侦察报告。
+// 详情需 ?k=HEALTH_TOKEN，且该变量必须已配置，两者缺一都拿不到。
+app.get('/__health', async (req, res) => {
+  const detailOk = Boolean(HEALTH_TOKEN) && req.query.k === HEALTH_TOKEN
+  if (!detailOk) {
+    return res.json({ ok: true, release: RELEASE_SHA })
+  }
   const report = {
     ok: true,
+    release: RELEASE_SHA,
     node: process.version,
     env: {
       SUPABASE_URL: Boolean(SUPABASE_URL),

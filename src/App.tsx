@@ -21,6 +21,8 @@ import Orders from './pages/account/Orders'
 import Referral from './pages/account/Referral'
 import PaymentResult from './pages/PaymentResult'
 import Admin from './pages/Admin'
+import NotFound from './pages/NotFound'
+import XiaoniuWidget from './components/support/XiaoniuWidget'
 
 const TRACK_PATHS = [
   'getting-started',
@@ -72,7 +74,12 @@ export default function App() {
       </Route>
       <Route path="/payment/result" element={<PaymentResult />} />
       <Route path="/admin" element={<Admin />} />
+      {/* 兜底：未匹配路由渲染 404 页，绝不留空白屏 */}
+      <Route path="*" element={<NotFound />} />
       </Routes>
+
+      {/* 全站客服入口：小牛 */}
+      <XiaoniuWidget />
     </>
   )
 }

@@ -2,7 +2,7 @@ import { getAccessToken } from './supabase'
 
 export async function api<T = any>(
   path: string,
-  options: { method?: string; body?: unknown; auth?: boolean } = {},
+  options: { method?: string; body?: unknown; auth?: boolean; signal?: AbortSignal } = {},
 ): Promise<T> {
   const headers: Record<string, string> = {}
   if (options.body !== undefined) headers['Content-Type'] = 'application/json'
@@ -14,11 +14,13 @@ export async function api<T = any>(
     method: options.method || (options.body !== undefined ? 'POST' : 'GET'),
     headers,
     body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+    signal: options.signal,
   })
   const data = await res.json().catch(() => ({}))
   if (!res.ok) {
     const err = new Error((data as any).message || (data as any).error || `HTTP ${res.status}`)
     ;(err as any).code = (data as any).error
+    ;(err as any).status = res.status
     throw err
   }
   return data as T
