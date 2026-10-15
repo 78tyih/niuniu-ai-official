@@ -82,19 +82,26 @@ export default function PaymentResult() {
           </div>
         )}
 
-        {/* 客服通道：支付后常驻展示 */}
+        {/* 客服通道：支付后常驻展示（购买链路固定触点：确保每个购买者都能加到客服） */}
         <div className="mt-6 rounded-xl border border-[#1b2740] bg-white/[0.03] p-5">
           <div className="text-xs text-slate-500">{outOfStock ? '添加客服，领取你的授权码' : '连接协助 · 使用问题 · 退款开票'}</div>
-          <div className="mt-4 flex items-center justify-center gap-5">
+          <div className="mt-4 flex items-start justify-center gap-5">
             <div>
-              <img src="/qr/kefuyuanyuan-qr.png" alt="客服企业微信" className="mx-auto h-24 w-24 rounded-lg object-cover" />
+              <img src="/qr/kefuyuanyuan-qr.png" alt="客服企业微信" className="mx-auto h-20 w-20 rounded-lg object-cover" />
               <div className="mt-1.5 text-xs text-slate-400">企业微信客服</div>
             </div>
             <div>
-              <img src="/qr/qq-group-qr.png" alt="QQ 交流群" className="mx-auto h-24 w-24 rounded-lg object-cover" />
+              <img src="/qr/wecom-group-qr.png" alt="企业微信交流群二维码" className="mx-auto h-20 w-20 rounded-lg object-cover" />
+              <div className="mt-1.5 text-xs text-slate-400">企微群 · 牛气冲天</div>
+            </div>
+            <div>
+              <img src="/qr/qq-group-qr.png" alt="QQ 交流群" className="mx-auto h-20 w-20 rounded-lg object-cover" />
               <div className="mt-1.5 text-xs text-slate-400">QQ 群 638778129</div>
             </div>
           </div>
+          <p className="mt-3 text-[11px] leading-relaxed text-slate-500">
+            三个渠道任选其一。企微群二维码有效期至 10 月 22 日，过期后扫码按提示重新进入即可。
+          </p>
         </div>
 
         <div className="mt-8 flex justify-center gap-3">

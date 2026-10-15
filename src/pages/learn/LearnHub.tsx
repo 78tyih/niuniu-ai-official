@@ -285,14 +285,14 @@ export default function LearnHub() {
               <div className="text-[15px] font-medium">查看常见问题</div>
               <div className="mt-1 text-[13px] text-[#6b7280]">连不上、不开仓、没有数据</div>
             </Link>
-            <Link
-              id="groups"
-              to="/community"
+            {/* /community 会被重定向回 /learn，等于原地打转；改为滚到下方群码区块 */}
+            <a
+              href="#groups"
               className="rounded-xl border border-[#eceae6] bg-[#fafaf8] px-5 py-4 transition-colors hover:border-[#f97316]"
             >
               <div className="text-[15px] font-medium">加入用户群</div>
-              <div className="mt-1 text-[13px] text-[#6b7280]">QQ · 企业微信 · 腾讯频道</div>
-            </Link>
+              <div className="mt-1 text-[13px] text-[#6b7280]">QQ · 企业微信</div>
+            </a>
             <a
               href={CUSTOMER_SERVICE_URL}
               target="_blank"
@@ -333,6 +333,23 @@ export default function LearnHub() {
               </div>
               <div className="mt-2">QQ 交流群 638778129（搜索群号即可加入）</div>
               <div className="mt-1">服务时间 9:00 – 18:00</div>
+            </div>
+          </div>
+
+          {/* 群入口锚点：全站「加入用户群」都指向这里。群码 7 天一换，见 GROUP_QR_EXPIRES_AT */}
+          <div
+            id="groups"
+            className="reveal mt-4 flex flex-col items-start gap-5 rounded-xl border border-[#eceae6] bg-[#fafaf8] px-5 py-5 sm:flex-row sm:items-center"
+          >
+            <img
+              src="/qr/wecom-group-qr.png"
+              alt="企业微信交流群二维码"
+              className="h-28 w-28 shrink-0 rounded-lg border border-[#eceae6] bg-white object-contain"
+            />
+            <div className="text-[13px] leading-relaxed text-[#6b7280]">
+              <div className="text-[15px] font-medium text-[#111111]">扫码加企业微信交流群</div>
+              <div className="mt-2">牛气冲天（MT5 版）· 使用微信或企业微信扫码加入</div>
+              <div className="mt-2">QQ 交流群 638778129（搜索群号即可加入，长期有效）</div>
             </div>
           </div>
         </div>

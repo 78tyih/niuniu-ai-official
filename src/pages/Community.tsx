@@ -166,8 +166,8 @@ export default function Community() {
                 <div className="flex items-center gap-3">
                   <img src="/qr/wecom-group-qr.png" alt="企业微信群二维码" className="h-16 w-16 rounded-lg border border-[#e5e7eb] object-cover" />
                   <div>
-                    <div className="text-[13px] font-semibold">企业微信群</div>
-                    <div className="text-[11px] text-[#9ca3af]">备用通道，防 QQ 群不可达</div>
+                    <div className="text-[13px] font-semibold">企业微信群 · 牛气冲天（MT5 版）</div>
+                    <div className="text-[11px] text-[#9ca3af]">扫码加入 · 二维码有效期至 10-22</div>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -242,8 +242,8 @@ export default function Community() {
               <div className="flex items-center gap-4 rounded-xl border border-[#e5e7eb] p-4">
                 <img src="/qr/wecom-group-qr.png" alt="企业微信群" className="h-20 w-20 rounded-lg object-cover" />
                 <div>
-                  <div className="text-sm font-semibold">企业微信群</div>
-                  <div className="mt-1 text-xs text-[#9ca3af]">备用通道，防止 QQ 群不可达</div>
+                  <div className="text-sm font-semibold">企业微信群 · 牛气冲天（MT5 版）</div>
+                  <div className="mt-1 text-xs text-[#9ca3af]">扫码加入 · 二维码有效期至 10-22</div>
                 </div>
               </div>
             </div>
